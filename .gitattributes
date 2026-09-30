@@ -1,0 +1,36 @@
+# Line endings, declared rather than guessed.
+#
+# Without this file git falls back to its binary-detection heuristic plus core.autocrlf, which
+# is what printed "LF will be replaced by CRLF" during the first add. The stored blobs happened
+# to already be LF, so nothing was wrong yet - but the policy was implicit, and an implicit one
+# is what makes a whole file show as changed because someone's editor saved it differently.
+#
+# Pinned to LF rather than text=auto on purpose: text=auto keeps converting per platform, so a
+# Windows checkout would carry CRLF while a macOS one carries LF, and the two disagree in every
+# diff after that. This project is TypeScript bundled by esbuild and runs the same tests on
+# desktop and iOS Obsidian, so there is no build step anywhere that needs CRLF.
+* text eol=lf
+
+# Generated and vendored paths: never line-ending candidates, never diff noise. Written with
+# an explicit /** because a trailing slash is gitignore syntax, not gitattributes - a bare
+# `node_modules/` line here silently matches nothing and the `*` rule above wins instead.
+node_modules/** text=no
+.obsidian/** text=no
+
+# Anything that is bytes to us, listed rather than left to a guess: the `* text` rule above
+# would otherwise try to normalise these, and rewriting line endings inside a PNG breaks it.
+# SVG is deliberately absent - artwork in this repo is text and should stay normalised.
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.gif -text
+*.ico -text
+*.pdf -text
+*.zip -text
+*.ttf -text
+*.woff -text
+*.woff2 -text
+
+# .gitignore stays text so its own comments stay readable in a diff.
+.gitignore text eol=lf
+.gitattributes text eol=lf

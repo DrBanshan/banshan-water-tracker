@@ -1,0 +1,283 @@
+import { ItemView } from 'obsidian';
+import {
+  cupDistribution,
+  headline,
+  heatLevel,
+  monthGrid,
+  weekdayPattern,
+  WEEKDAY_LABELS,
+} from './analytics';
+import { bottleById, drawBottle, tickValues, waterLevelY } from './bottles';
+import { dateKey, dayTotals, displayAmount, drinksInRange, formatAmount, monthKey } from './model';
+import type { DaySummary } from './store';
+import type { WaterSettings } from './types';
+import type WaterTrackerPlugin from './main';
+
+export const VIEW_TYPE_WATER_TRACKER = 'banshan-water-tracker-view';
+
+const WEEKDAY = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const CHART_DAYS = 30;
+/** The streak can outlive the chart window, so history is read a good deal further back. */
+const HISTORY_DAYS = 90;
+
+let uidSeed = 0;
+
+function group(n: number): string {
+  return String(n).replace(/\B(?=(\d{3})+$)/g, ',');
+}
+
+interface Styleable {
+  style: CSSStyleDeclaration;
+}
+
+type Panel = 'drink' | 'analysis';
+
+export class WaterTrackerView extends ItemView {
+  plugin: WaterTrackerPlugin;
+  private panel: Panel = 'drink';
+  private tabButtons: Record<Panel, HTMLElement | null> = { drink: null, analysis: null };
+  private drinkPanelEl: HTMLElement | null = null;
+  private analysisPanelEl: HTMLElement | null = null;
+  private bottleWrap: HTMLElement | null = null;
+  private waterEl: Styleable | null = null;
+  /** Everything the drawn artwork depends on: style, goal, unit and the printed graduations. */
+  private drawnKey: string | null = null;
+  private readoutEl: HTMLElement | null = null;
+  private controlsEl: HTMLElement | null = null;
+  private chartEl: HTMLElement | null = null;
+
+  // Obsidian hands us a WorkspaceLeaf; its type isn't usable from the plugin side.
+  constructor(leaf: { view: unknown }, plugin: WaterTrackerPlugin) {
+    super(leaf as never);
+    this.plugin = plugin;
+  }
+
+  getViewType(): string {
+    return VIEW_TYPE_WATER_TRACKER;
+  }
+
+  getDisplayText(): string {
+    return 'Water Tracker';
+  }
+
+  getIcon(): string {
+    return 'droplet';
+  }
+
+  async onOpen(): Promise<void> {
+    const root = this.contentEl.createDiv({ cls: 'wt-root' });
+
+    const tabs = root.createDiv({ cls: 'wt-tabs', attr: { role: 'tablist' } });
+    this.tabButtons.drink = this.makeTab(tabs, 'drink', 'Drink');
+    this.tabButtons.analysis = this.makeTab(tabs, 'analysis', 'Analysis');
+
+    const drink = root.createDiv({ cls: 'wt-panel', attr: { role: 'tabpanel' } });
+    this.drinkPanelEl = drink;
+    const bottle = drink.createDiv({ cls: 'wt-bottle-wrap', attr: { role: 'button', tabindex: '0' } });
+    bottle.setAttr('aria-label', 'Add a cup of water');
+    bottle.addEventListener('click', () => void this.plugin.addCup(this.plugin.settings.cupMl));
+    bottle.addEventListener('keydown', (event: KeyboardEvent) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        void this.plugin.addCup(this.plugin.settings.cupMl);
+      }
+    });
+    this.bottleWrap = bottle;
+    this.readoutEl = drink.createDiv({ cls: 'wt-readout' });
+    this.controlsEl = drink.createDiv({ cls: 'wt-controls' });
+    this.chartEl = drink.createDiv({ cls: 'wt-charts' });
+
+    this.analysisPanelEl = root.createDiv({ cls: 'wt-panel', attr: { role: 'tabpanel' } });
+
+    this.showPanel();
+    await this.render();
+  }
+
+  private makeTab(parent: HTMLElement, panel: Panel, label: string): HTMLElement {
+    const button = parent.createDiv({ cls: 'wt-tab', text: label, attr: { role: 'tab' } });
+    button.addEventListener('click', () => {
+      if (this.panel === panel) return;
+      this.panel = panel;
+      this.showPanel();
+      void this.render();
+    });
+    return button;
+  }
+
+  private showPanel(): void {
+    for (const key of ['drink', 'analysis'] as Panel[]) {
+      const button = this.tabButtons[key];
+      if (button) button.toggleClass('wt-tab-active', this.panel === key);
+      button?.setAttr('aria-selected', this.panel === key ? 'true' : 'false');
+    }
+    this.drinkPanelEl?.toggleClass('is-hidden', this.panel !== 'drink');
+    this.analysisPanelEl?.toggleClass('is-hidden', this.panel !== 'analysis');
+  }
+
+  async render(): Promise<void> {
+    const settings = this.plugin.settings;
+    const now = new Date();
+    const { rows, texts } = await this.plugin.store.readWindow(HISTORY_DAYS, now);
+    const goal = Math.max(1, settings.goalMl);
+    const today = rows.length > 0 ? rows[rows.length - 1].total : 0;
+    const recent = rows.slice(-CHART_DAYS);
+
+    this.paintBottle(settings, today, goal);
+    this.paintReadout(settings, today, goal);
+    this.paintControls(settings);
+    this.paintCharts(recent, goal, now);
+    this.paintAnalysis(recent, rows, goal, now, texts);
+  }
+
+  /** The bottle starts empty; each logged entry raises the level by that entry's amount. */
+  private paintBottle(settings: WaterSettings, today: number, goal: number): void {
+    const style = bottleById(settings.bottle);
+    if (!this.bottleWrap) return;
+
+    const marks = tickValues(goal);
+    // The goal and the unit belong in this key, not just the style id: without them a bottle
+    // drawn under an old goal keeps its old numbers no matter how often the view repaints.
+    const key = `${style.id}|${goal}|${settings.unit}|${marks.map((mark) => mark.ml).join(',')}`;
+    if (this.drawnKey !== key) {
+      uidSeed += 1;
+      this.bottleWrap.innerHTML = drawBottle(
+        style,
+        String(uidSeed),
+        marks.map((mark) => ({ fraction: mark.fraction, label: displayAmount(mark.ml, settings.unit) })),
+      );
+      this.waterEl = this.bottleWrap.querySelector('.wt-water') as unknown as Styleable;
+      this.drawnKey = key;
+    }
+
+    const y = waterLevelY(style, today / goal);
+    if (this.waterEl) this.waterEl.style.transform = `translate(0px, ${y}px)`;
+    this.bottleWrap.toggleClass('wt-is-empty', today <= 0);
+    this.bottleWrap.toggleClass('wt-is-full', today >= goal);
+  }
+
+  private paintReadout(settings: WaterSettings, today: number, goal: number): void {
+    const el = this.readoutEl;
+    if (!el) return;
+    el.empty();
+    el.toggleClass('wt-met', today >= goal);
+    el.createDiv({ cls: 'wt-total', text: `${group(today)} / ${group(goal)} ${settings.unit}` });
+    el.createDiv({ cls: 'wt-percent', text: `${Math.round((today / goal) * 100)}%` });
+    if (today >= goal) {
+      el.createDiv({ cls: 'wt-over', text: `+${group(today - goal)} ${settings.unit} over goal` });
+    } else {
+      el.createDiv({ cls: 'wt-left', text: `${group(goal - today)} ${settings.unit} to go` });
+    }
+    if (today === 0) el.createDiv({ cls: 'wt-hint', text: 'Tap the bottle to add a cup' });
+  }
+
+  private paintControls(settings: WaterSettings): void {
+    const el = this.controlsEl;
+    if (!el) return;
+    el.empty();
+
+    for (const ml of settings.cupPresets) {
+      const button = el.createDiv({ cls: 'wt-btn', text: `${displayAmount(ml, settings.unit)} ${settings.unit}` });
+      button.addEventListener('click', () => void this.plugin.addCup(ml));
+    }
+    const undo = el.createDiv({ cls: 'wt-btn wt-btn-ghost', text: 'Undo' });
+    undo.addEventListener('click', () => void this.plugin.undoLast());
+  }
+
+  private paintCharts(recent: DaySummary[], goal: number, now: Date): void {
+    const el = this.chartEl;
+    if (!el) return;
+    el.empty();
+    el.createDiv({ cls: 'wt-section', text: 'Last 7 days' });
+    this.barGroup(el, recent.slice(-7), goal, true, now);
+    el.createDiv({ cls: 'wt-section', text: 'Last 30 days' });
+    this.barGroup(el, recent, goal, false, now);
+  }
+
+  private barGroup(parent: HTMLElement, days: DaySummary[], goal: number, labelled: boolean, now: Date): void {
+    const wrap = parent.createDiv({ cls: labelled ? 'wt-bars wt-bars-labelled' : 'wt-bars' });
+    const todayKey = dateKey(now);
+
+    for (const day of days) {
+      const column = wrap.createDiv({ cls: 'wt-col' });
+      const bar = column.createDiv({ cls: 'wt-bar' });
+      bar.style.height = `${Math.round(Math.min(1, day.total / goal) * 100)}%`;
+      bar.toggleClass('wt-bar-met', day.total >= goal);
+      bar.setAttr('title', `${day.key} ${formatAmount(day.total, this.plugin.settings.unit)}`);
+      if (labelled) {
+        const index = new Date(Number(day.key.slice(0, 4)), Number(day.key.slice(5, 7)) - 1, Number(day.key.slice(8, 10))).getDay();
+        column.createDiv({
+          cls: day.key === todayKey ? 'wt-bar-label wt-bar-today' : 'wt-bar-label',
+          text: WEEKDAY[index] ?? '',
+        });
+      }
+    }
+  }
+
+  private paintAnalysis(recent: DaySummary[], history: DaySummary[], goal: number, now: Date, texts: Map<string, string>): void {
+    const el = this.analysisPanelEl;
+    const settings = this.plugin.settings;
+    if (!el) return;
+    el.empty();
+
+    const stats = headline(recent, goal, now, history);
+    const cards = el.createDiv({ cls: 'wt-cards' });
+    this.statCard(cards, 'Streak', `${stats.streak}`, stats.streak === 1 ? 'day' : 'days');
+    this.statCard(cards, 'Goal met', `${stats.hitRate}%`, `${stats.daysLogged} of ${stats.days} days`);
+    this.statCard(cards, 'Daily avg', group(stats.average), settings.unit);
+    this.statCard(cards, 'Best day', stats.best ? group(stats.best.total) : '0', stats.best ? `${settings.unit} on ${stats.best.key.slice(5)}` : `${settings.unit} yet`);
+
+    // ---- weekday rhythm -------------------------------------------------
+    el.createDiv({ cls: 'wt-section', text: 'When you drink' });
+    const peaks = weekdayPattern(recent);
+    const top = Math.max(1, ...peaks.map((peak) => peak.average));
+    const week = el.createDiv({ cls: 'wt-week' });
+    for (const peak of peaks) {
+      const row = week.createDiv({ cls: 'wt-week-row' });
+      row.createDiv({ cls: 'wt-week-label', text: WEEKDAY_LABELS[peak.index] ?? '' });
+      const track = row.createDiv({ cls: 'wt-week-track' });
+      const fill = track.createDiv({ cls: 'wt-week-fill' });
+      fill.style.width = `${Math.round((peak.average / top) * 100)}%`;
+      fill.toggleClass('wt-week-weak', peak.average < goal);
+      row.createDiv({ cls: 'wt-week-value', text: peak.average > 0 ? group(peak.average) : '-' });
+    }
+
+    // ---- month heat grid ------------------------------------------------
+    const month = monthKey(now);
+    el.createDiv({ cls: 'wt-section', text: `${month.slice(0, 4)}-${month.slice(5)} calendar` });
+    const grid = el.createDiv({ cls: 'wt-heat' });
+    for (const head of WEEKDAY_LABELS) grid.createDiv({ cls: 'wt-heat-head', text: head });
+    const totals = dayTotals(texts.get(month) ?? '');
+    for (const cell of monthGrid(totals, now.getFullYear(), now.getMonth() + 1)) {
+      grid.createDiv({
+        cls: cell.blank ? 'wt-heat-cell is-blank' : `wt-heat-cell wt-h${heatLevel(cell.total, goal)}`,
+        text: cell.blank ? '' : String(cell.day),
+        attr: cell.blank ? undefined : { title: `${cell.key}: ${formatAmount(cell.total, settings.unit)}` },
+      });
+    }
+
+    // ---- which cup actually gets used -----------------------------------
+    const keys = new Set(recent.map((day) => day.key));
+    const usage = cupDistribution(drinksInRange(texts, keys));
+    el.createDiv({ cls: 'wt-section', text: 'Cups you reach for' });
+    if (usage.length === 0) {
+      el.createDiv({ cls: 'wt-empty', text: 'Nothing logged in the last 30 days yet.' });
+      return;
+    }
+    const list = el.createDiv({ cls: 'wt-cups' });
+    const biggest = usage[0].count;
+    for (const cup of usage.slice(0, 5)) {
+      const row = list.createDiv({ cls: 'wt-cup-row' });
+      row.createDiv({ cls: 'wt-cup-name', text: `${displayAmount(cup.ml, settings.unit)} ${settings.unit}` });
+      const track = row.createDiv({ cls: 'wt-cup-track' });
+      track.createDiv({ cls: 'wt-cup-fill' }).style.width = `${Math.round((cup.count / biggest) * 100)}%`;
+      row.createDiv({ cls: 'wt-cup-count', text: `${cup.count} x ${cup.share}%` });
+    }
+  }
+
+  private statCard(parent: HTMLElement, label: string, value: string, foot: string): void {
+    const card = parent.createDiv({ cls: 'wt-card' });
+    card.createDiv({ cls: 'wt-card-label', text: label });
+    card.createDiv({ cls: 'wt-card-value', text: value });
+    card.createDiv({ cls: 'wt-card-foot', text: foot });
+  }
+}

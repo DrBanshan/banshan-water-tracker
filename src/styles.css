@@ -1,0 +1,505 @@
+/* Banshan Water Tracker */
+
+.wt-root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 12px 24px;
+}
+
+/* ---------- bottle ---------- */
+
+.wt-bottle-wrap {
+  width: 128px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.wt-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.wt-glass {
+  fill: none;
+  stroke: var(--wt-glass, #c9d1da);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+
+.wt-shine {
+  fill: none;
+  stroke: var(--wt-shine, #ffffff);
+  stroke-opacity: 0.55;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+/* The water group is moved, never rebuilt, so the rise can animate. */
+.wt-water {
+  transition: transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.3s ease;
+  will-change: transform;
+}
+
+.wt-is-empty .wt-water {
+  opacity: 0;
+}
+
+.wt-wave {
+  fill: var(--wt-water, #4fa8e8);
+}
+
+.wt-wave-back {
+  fill: var(--wt-water-back, #8ac8f2);
+  opacity: 0.5;
+  animation: wt-surge-back 5.5s linear infinite;
+}
+
+.wt-wave-front {
+  animation: wt-surge-front 3.4s linear infinite;
+}
+
+@keyframes wt-surge-front {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-120px); }
+}
+
+@keyframes wt-surge-back {
+  from { transform: translateX(-120px); }
+  to   { transform: translateX(0); }
+}
+
+/* ---------- readout ---------- */
+
+.wt-readout {
+  text-align: center;
+  line-height: 1.3;
+}
+
+.wt-total {
+  font-size: 1.4em;
+  font-weight: 700;
+}
+
+.wt-readout.wt-met .wt-total {
+  color: var(--color-green);
+}
+
+.wt-percent {
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.wt-left,
+.wt-over {
+  font-size: 0.85em;
+  color: var(--text-faint);
+}
+
+.wt-hint {
+  margin-top: 6px;
+  font-size: 0.8em;
+  color: var(--text-faint);
+}
+
+/* ---------- controls ---------- */
+
+.wt-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* Touch sized: no mouse on a phone, and hover means nothing there. */
+.wt-btn {
+  min-height: 44px;
+  min-width: 66px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--button-radius, 8px);
+  background: var(--interactive-normal);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modified);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.08s ease;
+}
+
+.wt-btn:active {
+  background: var(--interactive-hover);
+  transform: scale(0.96);
+}
+
+.wt-btn:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+
+.wt-btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+/* ---------- analysis ---------- */
+
+.wt-analysis {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wt-stats {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  font-size: 0.85em;
+  color: var(--text-muted);
+}
+
+.wt-section {
+  margin-top: 10px;
+  font-size: 0.72em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+
+.wt-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 62px;
+  padding: 4px 0 0;
+  border-bottom: 1px solid var(--background-modified);
+}
+
+.wt-col {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 3px;
+}
+
+.wt-bar {
+  width: 100%;
+  max-width: 26px;
+  min-height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--wt-water, #4fa8e8);
+  opacity: 0.75;
+  transition: height 0.35s ease;
+}
+
+.wt-bar-met {
+  opacity: 1;
+  background: var(--color-green);
+}
+
+.wt-bars-labelled .wt-bar {
+  max-width: 22px;
+}
+
+.wt-bar-label {
+  height: 1.1em;
+  font-size: 0.7em;
+  color: var(--text-faint);
+}
+
+.wt-bar-today {
+  color: var(--text-normal);
+  font-weight: 700;
+}
+
+/* ---------- tabs (drink | analysis, inside this one sidebar view) ---------- */
+
+.wt-tabs {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  width: 100%;
+  background: var(--background-modified);
+  border-radius: 10px;
+}
+
+.wt-tab {
+  flex: 1 1 0;
+  min-height: 34px;
+  padding: 7px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 0.9em;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.wt-tab:hover {
+  color: var(--text-normal);
+}
+
+.wt-tab-active {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  box-shadow: var(--shadow-swatch-1);
+}
+
+.wt-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+
+.wt-charts {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+/* ---------- bottle artwork ---------- */
+
+/* The empty glass: a light grey body, deliberately not tied to the theme's greys. */
+.wt-back .wt-glass {
+  fill: var(--wt-glass-fill, #eef2f6);
+  fill-opacity: 0.92;
+}
+
+.wt-cap {
+  fill: var(--wt-cap, #b9c2cd);
+  fill-opacity: 0.95;
+}
+
+.wt-cap-ring {
+  fill-opacity: 0.75;
+}
+
+.wt-base {
+  fill: none;
+  stroke: var(--wt-glass, #c9d1da);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+/* A pale stopper sitting in the mouth. Light on light, no dark outline. */
+.wt-stopper {
+  fill: var(--wt-stopper, #f4f6f8);
+  stroke: var(--wt-glass, #c9d1da);
+  stroke-width: 1;
+}
+
+/* The swing-top clasp. Steel, but a pale one: it must not read as an outline. */
+.wt-wire {
+  fill: none;
+  stroke: var(--wt-wire, #b9c3ce);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.wt-loop,
+.wt-rim {
+  fill: none;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.wt-loop {
+  stroke: var(--wt-cap, #b9c2cd);
+}
+
+.wt-rim {
+  stroke: var(--wt-glass, #c9d1da);
+  stroke-width: 4;
+}
+
+.wt-tick {
+  stroke: var(--wt-tick, #8a94a1);
+  stroke-opacity: 0.9;
+}
+
+.wt-tick-fine {
+  stroke-width: 1.5;
+}
+
+.wt-tick-bold {
+  stroke-width: 3;
+}
+
+/* Black on the light glass, so the graduations actually read. */
+.wt-tick-label {
+  fill: var(--wt-tick-ink, #101215);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+/* ---------- analysis ---------- */
+
+.wt-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
+
+.wt-card {
+  padding: 10px 11px;
+  border-radius: 10px;
+  background: var(--background-secondary-alt, var(--background-modified));
+  border: 1px solid var(--background-modified);
+}
+
+.wt-card-label {
+  font-size: 0.7em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+
+.wt-card-value {
+  font-size: 1.35em;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.wt-card-foot {
+  font-size: 0.74em;
+  color: var(--text-muted);
+}
+
+.wt-week,
+.wt-cups {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.wt-week-row,
+.wt-cup-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wt-week-label {
+  width: 22px;
+  font-size: 0.76em;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.wt-week-track,
+.wt-cup-track {
+  flex: 1 1 auto;
+  height: 9px;
+  border-radius: 5px;
+  background: var(--background-modified);
+  overflow: hidden;
+}
+
+.wt-week-fill,
+.wt-cup-fill {
+  height: 100%;
+  border-radius: 5px;
+  background: var(--wt-water, #4fa8e8);
+  transition: width 0.3s ease;
+}
+
+.wt-week-weak {
+  background: var(--text-faint);
+  opacity: 0.7;
+}
+
+.wt-week-value,
+.wt-cup-count {
+  width: 58px;
+  text-align: right;
+  font-size: 0.75em;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.wt-cup-name {
+  width: 58px;
+  font-size: 0.8em;
+}
+
+.wt-heat {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  width: 100%;
+}
+
+.wt-heat-head {
+  font-size: 0.66em;
+  text-align: center;
+  color: var(--text-faint);
+}
+
+.wt-heat-cell {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  font-size: 0.66em;
+  background: var(--background-modified);
+  color: var(--text-faint);
+}
+
+.wt-heat-cell.is-blank {
+  background: transparent;
+}
+
+.wt-h1 { background: var(--wt-heat-1, rgba(79, 168, 232, 0.2)); }
+.wt-h2 { background: var(--wt-heat-2, rgba(79, 168, 232, 0.42)); }
+.wt-h3 {
+  background: var(--wt-heat-3, rgba(79, 168, 232, 0.66));
+  color: var(--background-primary);
+}
+.wt-h4 {
+  background: var(--wt-heat-4, var(--wt-water, #4fa8e8));
+  color: var(--background-primary);
+  font-weight: 700;
+}
+
+.wt-empty {
+  font-size: 0.85em;
+  color: var(--text-faint);
+  padding: 4px 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wt-wave-back,
+  .wt-wave-front {
+    animation: none;
+  }
+
+  .wt-water,
+  .wt-bar {
+    transition: none;
+  }
+}

@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+
+# build output. The source of truth is src/ plus manifest.json; the bundle is generated.
+dist/
+build/
+main.js
+main.js.map
+*.build.map
+
+# build.js deploys into the dev vault, but Obsidian also drops state here whenever this
+# project is opened as a vault itself - none of it is source.
+.obsidian/
+workspace.json
+workspace-mobile.json
+data.json
+
+# Griddle session state at the repo root: planning scratch kept beside the code, not part of
+# the plugin. Anchored with a leading slash on purpose - an unanchored 'griddle/' would also
+# swallow .agents/skills/griddle/, which is project tooling we do want tracked.
+/griddle/
+
+# logs
+*.log
+npm-debug.log*
+
+# editors and operating systems
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+*.swp
+*~

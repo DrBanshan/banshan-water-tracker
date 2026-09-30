@@ -1,0 +1,3 @@
+interface:
+  display_name: "Griddle"
+  short_description: "Run durable grilling through the local Griddle web app"

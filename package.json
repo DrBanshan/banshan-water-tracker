@@ -1,0 +1,21 @@
+{
+  "name": "banshan-water-tracker",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Track cups of water per day with a bottle that fills up as you drink. Plain markdown in your vault, desktop and mobile.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node build.js --watch",
+    "build": "node build.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "silhouette": "node --experimental-strip-types scripts/silhouette.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.25.0",
+    "obsidian": "^1.8.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

@@ -7,7 +7,7 @@ import {
   weekdayPattern,
   WEEKDAY_LABELS,
 } from './analytics';
-import { bottleById, drawBottle, tickValues, waterLevelY } from './bottles';
+import { bottleById, bottleTree, mountShape, tickValues, waterLevelY } from './bottles';
 import { dateKey, dayTotals, displayAmount, drinksInRange, formatAmount, monthKey } from './model';
 import type { DaySummary } from './store';
 import type { WaterSettings } from './types';
@@ -140,10 +140,14 @@ export class WaterTrackerView extends ItemView {
     const key = `${style.id}|${goal}|${settings.unit}|${marks.map((mark) => mark.ml).join(',')}`;
     if (this.drawnKey !== key) {
       uidSeed += 1;
-      this.bottleWrap.innerHTML = drawBottle(
-        style,
-        String(uidSeed),
-        marks.map((mark) => ({ fraction: mark.fraction, label: displayAmount(mark.ml, settings.unit) })),
+      const uid = String(uidSeed);
+      // The drawing is mounted element by element from the same tree the tests read, so a
+      // graduation label that came out of settings reaches the page as a text node and never as
+      // markup something has to parse.
+      this.bottleWrap.empty();
+      mountShape(
+        this.bottleWrap,
+        bottleTree(style, uid, marks.map((mark) => ({ fraction: mark.fraction, label: displayAmount(mark.ml, settings.unit) }))),
       );
       this.waterEl = this.bottleWrap.querySelector('.wt-water') as unknown as Styleable;
       this.drawnKey = key;

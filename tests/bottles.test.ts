@@ -6,6 +6,7 @@ import {
   niceStep,
   tickValues,
   waterLevelY,
+  type Shape,
   type TickMark,
 } from '../src/bottles';
 
@@ -14,6 +15,41 @@ const TICKS: TickMark[] = [
   { fraction: 0.48, label: '1200' },
   { fraction: 0.72, label: '1800' },
 ];
+
+/**
+ * The path data a group of shapes is drawn from, walked out of the tree. The alternative is
+ * regexing markup, which is the thing the artwork stopped being made of.
+ */
+function pathData(...shapes: (Shape | undefined)[]): string[] {
+  const out: string[] = [];
+  const walk = (shape: Shape): void => {
+    const d = shape.attrs?.['d'];
+    if (typeof d === 'string') {
+      out.push(d);
+    }
+    for (const child of shape.children ?? []) {
+      walk(child);
+    }
+  };
+  for (const shape of shapes) {
+    if (shape !== undefined) {
+      walk(shape);
+    }
+  }
+  return out;
+}
+
+/** The rectangles among a style's decorations, as the numbers they were written as. */
+function rectsAt(shapes: Shape[]): { x: number; y: number; w: number }[] {
+  const out: { x: number; y: number; w: number }[] = [];
+  for (const shape of shapes) {
+    if (shape.tag !== 'rect') {
+      continue;
+    }
+    out.push({ x: Number(shape.attrs?.['x']), y: Number(shape.attrs?.['y']), w: Number(shape.attrs?.['width']) });
+  }
+  return out;
+}
 
 /** Every number pair in an all-absolute M/L/Q/C path, as [x, y]. */
 function pairs(path: string): number[][] {
@@ -87,8 +123,8 @@ describe('rising water', () => {
 
     // and the foot rolls over as an ellipse of its own: its far edge is drawn above the walls,
     // which is how a flat base looks tipped toward the eye, rather than a bowl swelling under it
-    expect(glass.base).to.be.a('string');
-    const basePts = pairs(glass.base!);
+    expect(glass.base?.tag).to.equal('path');
+    const basePts = pairs(pathData(glass.base)[0]);
     const baseTop = Math.min(...basePts.map((pair) => pair[1]));
     const baseEnds = Math.max(...basePts.map((pair) => pair[1]));
     expect(baseTop).to.be.lessThan(baseEnds);
@@ -257,18 +293,14 @@ describe('bottle artwork', () => {
     for (const style of BOTTLE_STYLES) {
       const svg = drawBottle(style, '16', TICKS);
       const xs: number[] = [];
-      // The outline fields hold bare path data; only decor is markup, so they are read apart.
-      for (const data of [style.body, style.clip ?? '', style.rim ?? '', style.base ?? '']) {
+      // The outline fields hold bare path data; the decorations are shapes, so each is read its own way.
+      for (const data of [style.body, style.clip ?? '', ...pathData(style.rim, style.base, ...style.decor)]) {
         for (const [x, y] of pairs(data)) if (y <= 60) xs.push(x);
       }
-      for (const path of style.decor.matchAll(/d="([^"]+)"/g)) {
-        for (const [x, y] of pairs(path[1])) if (y <= 60) xs.push(x);
-      }
-      for (const rect of style.decor.matchAll(/<rect[^>]*>/g)) {
-        const x = Number(/x="([\d.]+)"/.exec(rect[0])?.[1]);
-        const y = Number(/y="([\d.]+)"/.exec(rect[0])?.[1]);
-        const w = Number(/width="([\d.]+)"/.exec(rect[0])?.[1]);
-        if (!Number.isFinite(y) || y > 60) continue;
+      for (const box of rectsAt(style.decor)) {
+        if (!Number.isFinite(box.y) || box.y > 60) continue;
+        const x = box.x;
+        const w = box.w;
         // a rect at the neck has to be centred, which is symmetry in one check
         expect(Math.abs(x + w / 2 - 60)).to.be.lessThanOrEqual(0.5);
         xs.push(x, x + w);

@@ -54,6 +54,24 @@ function check() {
   return manifest;
 }
 
+function gateAppVersion() {
+  // minAppVersion is a promise about which installs get this plugin, so it is verified where the
+  // release is made. Day to day it is only a warning: a stale floor does not stop you working on
+  // the artwork, it just must not survive into something people download.
+  const run = childProcess.spawnSync(process.execPath, [path.join('scripts', 'check-min-app-version.mjs')], { encoding: 'utf8' });
+  const report = `${run.stdout ?? ''}${run.stderr ?? ''}`.trim();
+  if (run.status === 0) {
+    console.log(report.split('\n').slice(-1)[0]);
+    return;
+  }
+  if (RELEASE) {
+    console.error(report);
+    console.error('The release stops here: an API newer than the declared floor is undefined on the phones it skips over.');
+    process.exit(1);
+  }
+  console.warn(`The declared app version needs attention (npm run app-version):\n${report}`);
+}
+
 function deploy() {
   const dir = path.join(TEST_VAULT, '.obsidian', 'plugins', ID);
   fs.mkdirSync(dir, { recursive: true });
@@ -79,6 +97,7 @@ function deploy() {
 
 async function build() {
   const manifest = check();
+  gateAppVersion();
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
   if (RELEASE) {

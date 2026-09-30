@@ -8,6 +8,12 @@
  */
 import { BOTTLE_STYLES, tickValues, waterLevelY } from '../src/bottles.ts';
 
+/** The line a shape draws, or nothing when it is not a path at all. */
+const dOf = (shape: { attrs?: Record<string, string | number> } | undefined): string => {
+  const d = shape?.attrs?.['d'];
+  return typeof d === 'string' ? d : '';
+};
+
 const CELL_W = 46;
 const CELL_H = 44;
 const BOX = { minX: 8, maxX: 112, minY: 0, maxY: 224 };
@@ -134,25 +140,29 @@ function draw(style, fraction) {
   const shell = flatten(style.body);
   fill(grid, shell, '.', fraction > 0 ? undefined : -Infinity);
   if (fraction > 0) fill(grid, clipBelow(flatten(style.clip ?? style.body), level), '~', undefined, true);
-  stroke(grid, style.base ?? '', 'B');
-  stroke(grid, style.rim ?? '', '=');
+  stroke(grid, dOf(style.base), 'B');
+  stroke(grid, dOf(style.rim), '=');
   for (const mark of tickValues(2500)) {
     if (style.ticks === 'none') break;
     stroke(grid, `M${style.tickX - 12} ${waterLevelY(style, mark.fraction)} L${style.tickX} ${waterLevelY(style, mark.fraction)}`, '|');
   }
   stroke(grid, style.body, '#');
-  const art = (style.decor + (style.rim ?? '') + (style.base ?? ''));
-  for (const path of art.matchAll(/class="([^"]*)"[^>]*d="([^"]+)"/g) ?? []) {
-    const ch = path[1].includes('wt-wire') ? 'w' : path[1].includes('wt-shine') ? 'o' : path[1].includes('wt-base') ? 'B' : '=';
-    stroke(grid, path[2], ch);
-  }
-  for (const rect of style.decor.matchAll(/<rect[^>]*>/g) ?? []) {
-    const ch = rect[0].includes('wt-stopper') ? 'S' : 'C';
-    const x = Number(/x="([\d.]+)"/.exec(rect[0])?.[1]);
-    const y = Number(/y="([\d.]+)"/.exec(rect[0])?.[1]);
-    const w = Number(/width="([\d.]+)"/.exec(rect[0])?.[1]);
-    const h = Number(/height="([\d.]+)"/.exec(rect[0])?.[1]);
-    stroke(grid, `M${x} ${y} L${x + w} ${y} L${x + w} ${y + h} L${x} ${y + h} Z`, ch);
+  // The decorations are shapes now, so this walks them instead of parsing them back out of markup.
+  for (const shape of style.decor) {
+    const className = String(shape.attrs?.['class'] ?? '');
+    if (shape.tag === 'rect') {
+      const ch = className.includes('wt-stopper') ? 'S' : 'C';
+      const x = Number(shape.attrs?.['x']);
+      const y = Number(shape.attrs?.['y']);
+      const w = Number(shape.attrs?.['width']);
+      const h = Number(shape.attrs?.['height']);
+      stroke(grid, `M${x} ${y} L${x + w} ${y} L${x + w} ${y + h} L${x} ${y + h} Z`, ch);
+      continue;
+    }
+    const d = dOf(shape);
+    if (d === '') continue;
+    const ch = className.includes('wt-wire') ? 'w' : className.includes('wt-shine') ? 'o' : '=';
+    stroke(grid, d, ch);
   }
   return [level, grid.map((row) => ' |' + row.join('') + '| ').join('\n')];
 }

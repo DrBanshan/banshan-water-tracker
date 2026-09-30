@@ -44,6 +44,13 @@ from inside Obsidian instead.)
 can see it — Obsidian Sync is the least friction — then enable the plugin on the mobile app.
 Nothing in this plugin is desktop-only.
 
+**Version.** Obsidian 1.13.7 or newer is required. That is what `minAppVersion` in
+`manifest.json` promises, and `npm run app-version` checks the promise against the code by
+reading the version tags in the installed typings: an API newer than the floor is not merely
+an error at build time, it is `undefined` on the installs the floor lets through. The store
+reads the same field, so someone on an older app is not offered the plugin at all rather than
+handed one that breaks on them.
+
 ## Using it
 
 Click the droplet in the ribbon, or run **Water tracker: Open view** from the palette.
@@ -141,6 +148,7 @@ The same build by hand:
 ```bash
 npm run release    # writes main.js and styles.css at the repository root, both git-ignored
 npm run audit      # the manifest check on its own
+npm run app-version # the declared floor against the APIs the code really calls
 ```
 
 They sit at the root because that is where the workflow uploads and signs them from, which keeps
@@ -157,6 +165,14 @@ plugin and say nothing at all.
 One more thing the store does that surprises people: the community directory reads
 `manifest.json` at the HEAD of your default branch, so the committed file is part of a release,
 not just the tag.
+
+`npm run app-version` checks the other half of the version story. It asks the TypeScript compiler
+which Obsidian APIs the code actually reaches, reads the `@since` tag above each one out of the
+installed typings, and fails if any of them arrived after the declared floor. That is not a
+linting nicety: a method the app does not have yet is `undefined` at runtime, so calling one is a
+crash on an older install rather than an error at build time. The release build runs it, so the
+workflow needs no step of its own, and in development it warns instead of blocking, because a stale
+floor does not stop you working on the artwork.
 
 ## Worth knowing
 

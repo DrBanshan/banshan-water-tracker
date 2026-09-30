@@ -31,6 +31,12 @@ data.json
 *.log
 npm-debug.log*
 
+# Throwaway harnesses written to prove one thing about the working tree: a fidelity comparison
+# against the committed state, a breakage battery against a new test. Each speaks about the tree as
+# it stood the moment it was written, so they are ignored rather than kept green: the tests that
+# earn a living are the ones under tests/ that mean the same thing tomorrow.
+.scratch-*/
+
 # editors and operating systems
 .DS_Store
 Thumbs.db

@@ -19,10 +19,13 @@ workspace.json
 workspace-mobile.json
 data.json
 
-# Griddle session state at the repo root: planning scratch kept beside the code, not part of
-# the plugin. Anchored with a leading slash on purpose - an unanchored 'griddle/' would also
-# swallow .agents/skills/griddle/, which is project tooling we do want tracked.
+# Local tooling that happens to sit beside the plugin's source: griddle's session state at the
+# repo root, and the .agents skills folder. Neither is part of the plugin, and both stay on the
+# disk of whoever runs them - the skill loads out of the working tree, so a clone that lacks them
+# is still a complete plugin. Both rules are anchored: they name these two folders at the root,
+# not every directory that happens to share a name.
 /griddle/
+/.agents/
 
 # logs
 *.log
@@ -35,3 +38,5 @@ desktop.ini
 .idea/
 *.swp
 *~
+
+AGENTS.md

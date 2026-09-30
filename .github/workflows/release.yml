@@ -1,0 +1,62 @@
+name: Release
+
+# Version tags publish, and only version tags: 0.1.0, 1.2.0-rc.1. A stray tag named test or
+# scratch must not be able to put a release in front of every user's update checker.
+on:
+  push:
+    tags:
+      - '[0-9]*'
+
+permissions:
+  contents: write # the job creates the release and uploads files to it
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # The workflow checking itself. A typo in a script name or in an asset path would otherwise
+      # only surface as a red release, after the tag is already public and cannot be unsent.
+      - name: Check this workflow still matches the project
+        run: node scripts/check-release-yml.mjs
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # manifest.json is the single source of truth for the version, because that is the file
+      # Obsidian compares when it decides an update exists. package.json is made to agree.
+      - name: Align package.json with the manifest
+        run: npm run version-bump
+
+      - name: Audit the manifest the store installs from
+        run: npm run audit
+
+      - name: Build the release assets
+        run: npm run release
+
+      # Second half of the self-check, now that the files exist: the very paths handed to the
+      # uploader below have to be the paths the build just wrote.
+      - name: Confirm the assets to upload are the assets that were built
+        run: node scripts/check-release-yml.mjs --assets
+
+      - name: Publish
+        uses: softprops/auto-action-release@v2
+        with:
+          tag: ${{ github.ref_name }}
+          commit: ${{ github.sha }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          name: ${{ github.ref_name }}
+          assets: release/main.js, release/manifest.json, release/styles.css

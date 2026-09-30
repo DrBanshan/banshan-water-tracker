@@ -107,6 +107,36 @@ before you build the first time.
 The bundle is built with esbuild and imports nothing at runtime beyond `obsidian`: `moment`,
 `debounce`, `Notice`, `Setting` and friends all come from the host.
 
+## Releasing
+
+The version lives in `manifest.json` and nowhere else, because that is the file Obsidian reads
+to decide an update exists. `package.json` is made to agree with it rather than being edited
+along side it:
+
+```bash
+npm run version-bump
+```
+
+Then commit, tag, and push the tag. A tag that starts with a digit (`0.1.0`, `1.2.0-rc.1`)
+triggers `.github/workflows/release.yml`, which typechecks, tests, audits `manifest.json`,
+builds, and attaches the three files Obsidian installs - `main.js`, `manifest.json`,
+`styles.css` - to a GitHub Release named after the tag. A tag that does not look like a version
+publishes nothing, so a stray tag cannot put a release in front of every user's update checker.
+
+The same build run by hand, with the gate the workflow runs before it will publish anything:
+
+```bash
+npm run release    # → release/{main.js,manifest.json,styles.css}, and release/ is git-ignored
+npm run audit      # the manifest check on its own
+```
+
+In release mode the manifest audit is fatal rather than advisory: a missing field, a version
+that drifted from `package.json`, or an `isDesktopOnly: true` that contradicts this plugin's iOS
+support all stop the build, because each of those costs a user a broken install rather than a
+red build. Day to day `npm run build` keeps the same checks as warnings, except an `id`
+mismatch, which is fatal there too: Obsidian then loads the stale build sitting under the right
+folder name and tells you nothing at all.
+
 ## Worth knowing
 
 - **No reminders.** Obsidian's plugin API has no notification surface that also works on iOS,

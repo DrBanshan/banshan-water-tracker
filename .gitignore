@@ -4,6 +4,7 @@ node_modules/
 # build output. The source of truth is src/ plus manifest.json; the bundle is generated.
 dist/
 build/
+release/
 main.js
 main.js.map
 *.build.map

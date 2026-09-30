@@ -16,6 +16,10 @@ const REQUIRED = ['id', 'name', 'version', 'minAppVersion', 'description', 'auth
 const SEMVER = /^\d+\.\d+\.\d+$/;
 const ID = /^[a-z][a-z0-9-]*$/;
 const DESCRIPTION_LIMIT = 300;
+// The submission guide's prerequisites, checked rather than remembered: the README excerpt is
+// what appears on the listing page, and the licence is what tells people what they may do with
+// the source. Missing either is a review round trip that cost a week of queue.
+const SUBMISSION_FILES = ['README.md', 'LICENSE'];
 
 export function auditManifest(manifest, options = {}) {
   const { expectId, packageVersion } = options;
@@ -30,6 +34,11 @@ export function auditManifest(manifest, options = {}) {
 
   if (typeof manifest.id === 'string' && !ID.test(manifest.id)) {
     problems.push(`id '${manifest.id}' must be lower case letters, digits and dashes`);
+  }
+  // Reserved by the host: every published plugin shares one namespace, and the store will not
+  // take an id that borrows the product's own name.
+  if (typeof manifest.id === 'string' && manifest.id.toLowerCase().includes('obsidian')) {
+    problems.push(`id '${manifest.id}' contains 'obsidian', which the store reserves for the host itself`);
   }
   // The dev build writes into .obsidian/plugins/<id>/ and enables it under that same name.
   // Letting these disagree means Obsidian loads an older copy of the plugin and says nothing.
@@ -59,6 +68,12 @@ export function auditManifest(manifest, options = {}) {
     problems.push(
       `package.json says version '${packageVersion}' but manifest.json says '${manifest.version}'; run npm run version-bump`,
     );
+  }
+
+  for (const file of SUBMISSION_FILES) {
+    if (!fs.existsSync(file)) {
+      problems.push(`${file} is missing from the repository root, which the submission guide asks for before a plugin is reviewed`);
+    }
   }
 
   return problems;

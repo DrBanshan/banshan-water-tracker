@@ -1,6 +1,7 @@
 import * as esbuild from 'esbuild';
 import * as fs from 'fs';
 import * as path from 'path';
+import childProcess from 'node:child_process';
 import { auditManifest } from './scripts/audit-manifest.mjs';
 
 const WATCH = process.argv.includes('--watch');
@@ -16,8 +17,19 @@ const ID = 'banshan-water-tracker';
 const ASSETS = ['main.js', 'manifest.json', 'styles.css'];
 // Development vault the plugin is pushed to for manual checking. Change this line if it moves.
 const TEST_VAULT = 'D:/Projects/ob-plugin-dev';
-// A release is staged on its own so a CI run never needs a vault, and never writes into one.
-const OUT_DIR = RELEASE ? 'release' : `.obsidian/plugins/${ID}`;
+// Where the files land. A release goes to the repository root, which is where Obsidian's own
+// release workflow points at them: both `actions/attest` and `gh release create` take the three
+// names as bare paths, and bare paths are what keep the uploaded asset names identical to the
+// names the store later downloads. A dev build goes straight into your vault.
+const OUT_DIR = RELEASE ? '.' : `.obsidian/plugins/${ID}`;
+// The manifest is authored, not generated: in release mode it already sits at the root, and
+// copying a file onto itself fails for a reason that has nothing to do with your code.
+const GENERATED = ['main.js', 'styles.css'];
+
+function isTracked(name) {
+  const listed = childProcess.spawnSync('git', ['ls-files', '--', name], { encoding: 'utf8' });
+  return listed.status === 0 && listed.stdout.trim().length > 0;
+}
 
 function check() {
   const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
@@ -70,10 +82,16 @@ async function build() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
   if (RELEASE) {
-    // Start empty, so a file left over from an earlier version cannot ride along in the release.
-    for (const file of ASSETS) {
-      const stale = path.join(OUT_DIR, file);
-      if (fs.existsSync(stale)) fs.rmSync(stale);
+    // Start from nothing, so a bundle left over from an earlier version cannot ride along in the
+    // release. And refuse to write over tracked files: these two names land at the repository
+    // root among real source, and quietly replacing one of those is a bad way to learn about it.
+    const tracked = GENERATED.filter((name) => isTracked(name));
+    if (tracked.length > 0) {
+      console.error(`${tracked.join(', ')} is tracked at the repository root; the release build writes generated files there and will not overwrite source`);
+      process.exit(1);
+    }
+    for (const name of GENERATED) {
+      if (fs.existsSync(name)) fs.rmSync(name);
     }
   }
 
@@ -94,7 +112,9 @@ async function build() {
         setup(pluginBuild) {
           pluginBuild.onEnd((result) => {
             if (result.errors.length > 0) return;
-            fs.copyFileSync('manifest.json', path.join(OUT_DIR, 'manifest.json'));
+            // In release mode the manifest at the root is the artifact, so it is read from there
+            // and never rewritten; a dev build needs a copy sitting next to the bundle.
+            if (!RELEASE) fs.copyFileSync('manifest.json', path.join(OUT_DIR, 'manifest.json'));
             fs.copyFileSync('src/styles.css', path.join(OUT_DIR, 'styles.css'));
 
             if (RELEASE) {

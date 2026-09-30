@@ -4,8 +4,11 @@ node_modules/
 # build output. The source of truth is src/ plus manifest.json; the bundle is generated.
 dist/
 build/
-release/
-main.js
+# A release build writes these two at the repository root, which is where the release workflow
+# uploads them from and where the attestation reads them. Anchored on purpose: an unanchored
+# styles.css would also hide src/styles.css, which is the real source of the plugin's styles.
+/main.js
+/styles.css
 main.js.map
 *.build.map
 

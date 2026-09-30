@@ -1,30 +1,36 @@
-name: Release
+name: Release Obsidian plugin
 
-# Version tags publish, and only version tags: 0.1.0, 1.2.0-rc.1. A stray tag named test or
-# scratch must not be able to put a release in front of every user's update checker.
+# Obsidian's release guide triggers on every tag and leaves the matching to the steps below, and
+# that is the shape kept here on purpose. A tag filter that quietly skipped a mistyped tag would
+# leave you staring at a tag with no release behind it and no red run to tell you why; failing
+# loudly here is what makes "I pushed the tag" mean "the release exists".
 on:
   push:
     tags:
-      - '[0-9]*'
-
-permissions:
-  contents: write # the job creates the release and uploads files to it
+      - "*"
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
+    # contents:write creates the release; the other two are what let actions/attest sign the
+    # build. If your repository's Actions settings are set to read-only workflow permissions,
+    # change them to "Read and write permissions" under Settings, Actions, General, or the
+    # attestation step fails with a permissions error that says nothing about what it wanted.
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: npm
-
-      # The workflow checking itself. A typo in a script name or in an asset path would otherwise
-      # only surface as a red release, after the tag is already public and cannot be unsent.
-      - name: Check this workflow still matches the project
-        run: node scripts/check-release-yml.mjs
+          # The guide's sample pins 18.x. This repository's build and scripts call
+          # String.prototype.matchAll, which is Node 22 and newer, so 18 would fail the build
+          # for a reason that has nothing to do with the plugin.
+          node-version: "24.x"
 
       - name: Install
         run: npm ci
@@ -35,28 +41,41 @@ jobs:
       - name: Test
         run: npm test
 
-      # manifest.json is the single source of truth for the version, because that is the file
-      # Obsidian compares when it decides an update exists. package.json is made to agree.
-      - name: Align package.json with the manifest
-        run: npm run version-bump
-
-      - name: Audit the manifest the store installs from
-        run: npm run audit
-
-      - name: Build the release assets
+      - name: Build plugin
+        # Release mode, not the plain build: the plain one deploys into a development vault, which
+        # a runner neither has nor should be writing to. Release mode stages the three files at
+        # the repository root and refuses to continue on a manifest Obsidian would reject.
         run: npm run release
 
-      # Second half of the self-check, now that the files exist: the very paths handed to the
-      # uploader below have to be the paths the build just wrote.
-      - name: Confirm the assets to upload are the assets that were built
+      - name: Check the tag against the manifest
+        # The store downloads the release whose tag equals the version in manifest.json, and only
+        # understands x.y.z. Checked after the build so a broken build reports first, and before
+        # the release is created so a mismatched pair never becomes public.
+        run: node scripts/check-tag-version.mjs "${GITHUB_REF#refs/tags/}"
+
+      - name: Check this workflow still matches the project
         run: node scripts/check-release-yml.mjs --assets
 
-      - name: Publish
-        uses: softprops/auto-action-release@v2
+      - name: Generate artifact attestation
+        # Signed build provenance for the three files, which is what the community directory
+        # review asks for. The names are the ones sitting at the repository root after the build.
+        uses: actions/attest@v4
         with:
-          tag: ${{ github.ref_name }}
-          commit: ${{ github.sha }}
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          name: ${{ github.ref_name }}
-          assets: release/main.js, release/manifest.json, release/styles.css
+          subject-path: |-
+            main.js
+            manifest.json
+            styles.css
+
+      - name: Create release
+        # A draft, as in the guide: the assets get eyeballed and the notes written by hand, then
+        # Published from the repository. An unpublished release is a mistake you can take back;
+        # a published one is a version every installed copy of this plugin will be told about.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+
+          gh release create "$tag" \
+            --title="$tag" \
+            --draft \
+            main.js manifest.json styles.css

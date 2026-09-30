@@ -110,32 +110,53 @@ The bundle is built with esbuild and imports nothing at runtime beyond `obsidian
 ## Releasing
 
 The version lives in `manifest.json` and nowhere else, because that is the file Obsidian reads
-to decide an update exists. `package.json` is made to agree with it rather than being edited
-along side it:
+to decide an update exists, and because the store hands out files from the GitHub release whose
+**tag equals that version**. The two have to agree, and only `x.y.z` is understood: no leading
+`v`, no `-rc.1`, no `+build.7`. `package.json` is made to agree with the manifest rather than
+being edited along side it:
 
 ```bash
-npm run version-bump
+npm run version-bump            # manifest.json is the source of truth, package.json follows
+git tag -a 0.1.0 -m "0.1.0"    # the tag is the version itself, nothing else
+git push origin 0.1.0
 ```
 
-Then commit, tag, and push the tag. A tag that starts with a digit (`0.1.0`, `1.2.0-rc.1`)
-triggers `.github/workflows/release.yml`, which typechecks, tests, audits `manifest.json`,
-builds, and attaches the three files Obsidian installs - `main.js`, `manifest.json`,
-`styles.css` - to a GitHub Release named after the tag. A tag that does not look like a version
-publishes nothing, so a stray tag cannot put a release in front of every user's update checker.
+Pushing a tag runs `.github/workflows/release.yml`. It installs, typechecks, tests, builds, then
+stops unless the tag and `manifest.json` name the same version; then it signs the build with a
+provenance attestation and opens a **draft** release carrying `main.js`, `manifest.json` and
+`styles.css`. You read the assets, write the notes, and press Publish. Draft on purpose: a draft
+release that turns out wrong is yours to delete, while a published one has already told every
+installed copy of this plugin that there is an update.
 
-The same build run by hand, with the gate the workflow runs before it will publish anything:
+Every tag starts a run, including a mistyped one, and a mistyped one goes red rather than being
+filtered out in silence - a tag that quietly matched nothing would leave you looking at a tag
+with no release behind it and no clue where the release went.
+
+The first time, one setting outside the file is needed: in the repository, **Settings → Actions →
+General → Workflow permissions → Read and write permissions**. Without it the attestation step is
+refused, with an error that says nothing about what it wanted.
+
+The same build by hand:
 
 ```bash
-npm run release    # → release/{main.js,manifest.json,styles.css}, and release/ is git-ignored
+npm run release    # writes main.js and styles.css at the repository root, both git-ignored
 npm run audit      # the manifest check on its own
 ```
 
-In release mode the manifest audit is fatal rather than advisory: a missing field, a version
-that drifted from `package.json`, or an `isDesktopOnly: true` that contradicts this plugin's iOS
-support all stop the build, because each of those costs a user a broken install rather than a
-red build. Day to day `npm run build` keeps the same checks as warnings, except an `id`
-mismatch, which is fatal there too: Obsidian then loads the stale build sitting under the right
-folder name and tells you nothing at all.
+They sit at the root because that is where the workflow uploads and signs them from, which keeps
+the names in the release exactly the three names the store downloads.
+
+In release mode the manifest audit is fatal rather than advisory: a missing field, a version that
+drifted from `package.json`, an `id` containing `obsidian`, a missing `README.md` or `LICENSE`, or
+an `isDesktopOnly: true` that contradicts this plugin's iOS support all stop the build. Each of
+those costs a user a broken install or a reviewer a rejected submission rather than a red build.
+Day to day `npm run build` keeps the same checks as warnings, except an `id` mismatch with the
+folder Obsidian loads, which is fatal there too: that one makes Obsidian run a stale copy of the
+plugin and say nothing at all.
+
+One more thing the store does that surprises people: the community directory reads
+`manifest.json` at the HEAD of your default branch, so the committed file is part of a release,
+not just the tag.
 
 ## Worth knowing
 

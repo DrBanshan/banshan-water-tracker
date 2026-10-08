@@ -139,6 +139,22 @@ Every tag starts a run, including a mistyped one, and a mistyped one goes red ra
 filtered out in silence - a tag that quietly matched nothing would leave you looking at a tag
 with no release behind it and no clue where the release went.
 
+Before you spend a tag, the gates in that workflow can be run here:
+
+```bash
+npm run release-dry-run
+```
+
+It takes its steps out of the workflow file rather than from a second list of them that could fall
+out of step, and runs the ones that belong to this machine under the environment Actions hands a
+workflow, so the tag expression is exercised the way CI writes it and not merely the script behind
+it. Two kinds of step are left alone: the ones that belong to a runner (`checkout`, `setup-node`,
+the attestation), and the one that publishes - that step is recognised by what its script says rather
+than by what it is named, so renaming it does not make it runnable, because a rehearsal that could
+publish is not a rehearsal. `npm ci` is skipped unless you pass `--install`, since it wipes
+`node_modules` and wants the network. It runs against your working tree rather than a clean
+checkout, so it is proof that the commands and their order are right, not a replacement for the run.
+
 The first time, one setting outside the file is needed: in the repository, **Settings → Actions →
 General → Workflow permissions → Read and write permissions**. Without it the attestation step is
 refused, with an error that says nothing about what it wanted.

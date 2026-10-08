@@ -12,6 +12,7 @@
     "version-bump": "node scripts/version-bump.mjs",
     "tag-check": "node scripts/check-tag-version.mjs",
     "app-version": "node scripts/check-min-app-version.mjs",
+    "release-dry-run": "node scripts/check-release-yml.mjs --run",
     "audit": "node scripts/audit-manifest.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

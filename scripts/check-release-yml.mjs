@@ -55,14 +55,31 @@ function readSteps() {
   let current = null;
   let mode = null; // 'with' | 'run' | 'subject-path'
   let modeIndent = 0;
+  // The tag trigger is written `tags:` then `- "*"` at six spaces, which is the very shape a step
+  // has. Without knowing that it is inside a steps: block the trigger is mistaken for a step, and
+  // the rehearsal then executes an empty script and counts a step the file does not have.
+  let inSteps = false;
 
   const closeBlock = () => { mode = null; };
 
   lines.forEach((line, index) => {
-    const stepStart = /^ {6}-\s(.*)$/.exec(line);
+    // Job level keys sit at four spaces or shallower; anything else is deeper structure. Reaching
+    // one ends whatever steps: block was open, and a second job would open its own.
+    if (/^ {0,4}[a-z_-]+:/.test(line)) {
+      inSteps = /^ {4}steps:\s*$/.test(line);
+      if (!inSteps) {
+        current = null;
+      }
+      return;
+    }
+
+    const stepStart = inSteps ? /^ {6}-\s(.*)$/.exec(line) : null;
     if (stepStart) {
       current = { at: index + 1, uses: '', name: '', run: '', inputs: new Map(), envs: new Map() };
       steps.push(current);
+      // This file writes `- name: Install`, so the name is on the step line rather than in the body.
+      const inlineName = /^name:\s*(.*)$/.exec(stepStart[1]);
+      if (inlineName !== null) current.name = inlineName[1].trim();
       const inline = /^uses:\s*(\S+)/.exec(stepStart[1]);
       if (inline) current.uses = inline[1];
       mode = null;
@@ -256,6 +273,103 @@ if (problems.length > 0) {
   console.error(`${WORKFLOW} needs work:`);
   for (const problem of problems) console.error(`  - ${problem}`);
   process.exit(1);
+}
+
+// --- rehearse the workflow for real, one step at a time ---------------------------------
+// GitHub Actions has never run this file. Everything above is a claim about a script; this is the
+// closest thing available to a proof of a run. The steps are taken from the same parse the
+// structural checks used and executed in the order the file gives them, under the environment
+// Actions hands a workflow, so the rehearsal cannot drift from the thing it rehearses - a second
+// list of commands to keep in step would be the first bug this feature shipped with.
+//
+// Two kinds of step are never executed here:
+//  - uses: steps. checkout, setup-node and the attestation belong to a runner, not to this box,
+//    and pretending otherwise would mean faking the very parts that are not yet proven.
+//  - the step that publishes. Creating a release is the one act in this file that writes to the
+//    world, and it is recognised by its content rather than by its name, because a step renamed
+//    to something innocent still publishes.
+function classify(step) {
+  if (step.uses.length > 0) {
+    return { action: 'skip', why: `uses ${step.uses}, which is a runner's to do` };
+  }
+  if (/\bgh\s+release\b/.test(step.run)) {
+    return { action: 'skip', why: 'publishing writes to the world, and a rehearsal that could do that is not a rehearsal' };
+  }
+  if (/^\s*npm\s+ci\b/.test(step.run) && !process.argv.includes('--install')) {
+    return { action: 'skip', why: 'npm ci wipes node_modules and wants the network (pass --install to run it)' };
+  }
+  return { action: 'run' };
+}
+
+async function rehearse() {
+  const child = await import('node:child_process');
+  const spawn = child.default?.spawnSync ?? child.spawnSync;
+  if (typeof spawn !== 'function') {
+    fail('cannot reach child_process to run the steps, so the rehearsal cannot go ahead');
+    return false;
+  }
+
+  const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+  const pinned = steps.find((step) => /setup-node/.test(step.uses))?.inputs.get('node-version') ?? '';
+  const wanted = Number(/\d+/.exec(pinned)?.[0] ?? '0');
+  const local = Number(process.versions.node.split('.')[0]);
+  if (wanted > 0 && local !== wanted) {
+    // The file pins 24.x because the scripts use matchAll. Rehearsing on a node the workflow would
+    // not have would let a step pass here and die there, which is the opposite of the exercise.
+    fail(`the workflow installs node ${wanted} while this box is on ${local}; rehearsing a different runtime than CI will use proves nothing`);
+    return false;
+  }
+
+  const env = {
+    ...process.env,
+    CI: 'true',
+    GITHUB_REF: `refs/tags/${manifest.version}`,
+    GITHUB_REF_NAME: manifest.version,
+    GITHUB_HEAD_REF: 'refs/heads/main',
+    GITHUB_SHA: '0'.repeat(40),
+    GITHUB_REPOSITORY: process.env.GITHUB_REPOSITORY ?? 'DrBanshan/banshan-water-tracker',
+    RUNNER_OS: process.platform === 'win32' ? 'Windows' : process.platform,
+    RUNNER_ARCH: 'x64',
+  };
+
+  console.log(`Rehearsing ${WORKFLOW} as tag ${manifest.version} would run it:`);
+  // Honest about the one thing this cannot be: checkout is skipped, so these steps see this working
+  // tree, ignored files and all, where CI would see a clean one.
+  console.log('  (against this working tree, not a fresh checkout, since checkout itself is skipped)');
+  let executed = 0;
+  for (const [index, step] of steps.entries()) {
+    const label = `${index + 1}/${steps.length} ${step.name || '(unnamed step)'}`;
+    const plan = classify(step);
+    if (plan.action === 'skip') {
+      console.log(`  skip   ${label} - ${plan.why}`);
+      continue;
+    }
+    console.log(`  run    ${label}`);
+    const run = spawn('bash', ['--noprofile', '--norc', '-c', step.run], {
+      env,
+      stdio: 'inherit',
+      timeout: 900_000,
+    });
+    if (run.error !== undefined) {
+      fail(`${label} could not be started: ${run.error.message}`);
+      return false;
+    }
+    if (run.status !== 0) {
+      // The workflow stops at a failed step, so this does too: continuing past a gate that just
+      // failed would rehearse a sequence CI can never reach.
+      console.error(`  FAILED ${label} (exit ${run.status ?? 'signal'}); the rest of the workflow would not have run`);
+      return false;
+    }
+    executed += 1;
+  }
+  console.log(`Rehearsal: ${executed} of ${steps.length} steps ran clean, ${steps.length - executed} left to the runner.`);
+  return true;
+}
+
+if (process.argv.includes('--run')) {
+  if (problems.length === 0 && !(await rehearse())) {
+    process.exit(1);
+  }
 }
 
 console.log(

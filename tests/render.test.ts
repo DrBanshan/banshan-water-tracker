@@ -13,7 +13,14 @@ import { BOTTLE_STYLES, drawBottle, tickValues, type TickMark } from '../src/bot
  * shows up on the screen as a bottle that simply is not there.
  */
 
-const styles = fs.readFileSync('src/styles.css', 'utf8');
+/**
+ * Comments are prose, not declarations: a note can name a class, a keyframe or a keyword without
+ * any of it being true of the sheet, and an explanation of a lint rule would otherwise trip over
+ * that very rule while explaining it. Every scan below reads the sheet with the comments out.
+ */
+const stripComments = (sheet: string): string => sheet.replace(/\/\*[\s\S]*?\*\//g, '');
+
+const styles = stripComments(fs.readFileSync('src/styles.css', 'utf8'));
 
 const sourceOf = (): string => {
   let all = '';
@@ -144,6 +151,31 @@ describe('the stylesheet behind the drawing', () => {
     };
     const unreachable = [...styledClasses()].filter((className) => !reachable(className));
     expect(unreachable.filter((className) => !knownDead.includes(className))).toEqual([]);
+  });
+
+  // The store's review lints for this, and it is a fair rule rather than a fussy one: an
+  // !important is a tie being won by force instead of by a selector that means it, which is the
+  // shape of thing that quietly stops working when somebody reorders the file and nothing in the
+  // diff looks like it touched the rules.
+  it('wins what it needs to win by specificity, not by !important', () => {
+    expect(styles).not.toMatch(/!\s*important/);
+  });
+
+  // A display value an engine does not recognise is dropped, and the rule then does nothing at all
+  // while looking entirely correct in review. The two-value form is newer than the single keywords
+  // and is the one a phone's webview is least certain to agree about, so this sheet stays on the
+  // keywords that have meant the same thing everywhere for long enough to rely on.
+  it('declares display with values every engine here agrees on, iOS included', () => {
+    const allowed = new Set([
+      'block', 'flex', 'grid', 'inline', 'inline-block', 'inline-flex',
+      'table', 'table-row', 'list-item', 'contents', 'none',
+    ]);
+    const declared = [...(styles.matchAll(/display:\s*([^;{}]+)/g) ?? [])].map((match) => match[1].trim());
+    expect(declared.length).toBeGreaterThanOrEqual(15);
+    for (const value of declared) {
+      expect(value, `display: ${value} is one keyword, not the newer two-value form`).not.toContain(' ');
+      expect(allowed.has(value), `display: ${value} means the same thing everywhere`).toBe(true);
+    }
   });
 
   it('still has the rules the rising water animates from', () => {

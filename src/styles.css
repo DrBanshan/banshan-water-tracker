@@ -273,8 +273,15 @@
   gap: 4px;
 }
 
-.is-hidden {
-  display: none !important;
+/* Only one of the two panels is shown at a time, so the other comes out of the flow. Two classes
+ * rather than one with !important on it: the single-class form merely tied with .wt-panel's own
+ * display:flex and won only because of the order the two happen to sit in this file, with
+ * !important there to make that safe rather than to make it true. Reorder this sheet and both
+ * panels would have shown at once, with nothing in the diff to say so. Plain `none` is used rather
+ * than the newer two-value form (`display: none`), which means the same thing but is the spelling
+ * the engines on a phone are least certain to agree on. */
+.wt-panel.is-hidden {
+  display: none;
 }
 
 /* ---------- bottle artwork ---------- */

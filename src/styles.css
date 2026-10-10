@@ -217,9 +217,11 @@
   color: var(--text-faint);
 }
 
+/* Today keeps a stronger ink than the other weekdays, but the bold belongs to the day under edit
+   alone: with 700 here as well, moving the selection could not move the bold, it could only add a
+   second one and leave today wearing what used to be its only marking. */
 .wt-bar-today {
   color: var(--text-normal);
-  font-weight: 700;
 }
 
 /* The weekday of the day under edit, so the bottle above has an owner you can see. */
@@ -232,11 +234,29 @@
   cursor: pointer;
 }
 
-/* Marks the column under edit, and only while that day is not today. */
+/* The marker gets a row of its own beneath the strip. Set inside a column it sits in the same flex
+   stack as the bar and takes height away from it, which is what shoves a day's amount upward. The
+   cells flex exactly as .wt-col does, one fraction each with the same gap, so the two line up
+   without either having to know about the other. */
+.wt-tri-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.wt-tri-cell {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 8px;
+  display: flex;
+  justify-content: center;
+}
+
+/* The one under edit, and only while that day is not today. The cell centres it, so there is no
+   margin here to pull it out from under the bar it belongs to. */
 .wt-tri {
   width: 0;
   height: 0;
-  margin: 3px auto 0;
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
   border-top: 6px solid var(--wt-tri, #101215);

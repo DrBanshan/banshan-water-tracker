@@ -65,9 +65,9 @@ Click the droplet in the ribbon, or run **Water tracker: Open view** from the pa
 
 The row at the bottom of the Drink tab moves the day you are editing: the chevrons step one day back
 or forward, and touching a weekday in **Last 7 days** jumps straight to that day. The weekday goes
-bold for the day under edit and the 30-day strip puts a small marker under its column, which is what
-tells you the bottle above is showing that day rather than today. Arriving back on today clears the
-marker.
+bold moves to the day you are editing, and the 30-day strip marks that day in a row of its own
+beneath the bars, where it cannot crowd them, which is what tells you the bottle above is showing that
+day rather than today. Arriving back on today clears both.
 
 - A cup logged into a day that has already gone by is stamped `23:59` of that day, the last minute of
   it a forgotten drink can honestly belong to. Logging into today keeps the real clock time.

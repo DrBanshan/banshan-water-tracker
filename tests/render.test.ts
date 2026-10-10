@@ -153,6 +153,54 @@ describe('the stylesheet behind the drawing', () => {
     expect(unreachable.filter((className) => !knownDead.includes(className))).toEqual([]);
   });
 
+  // The artwork is checked against the markup the artwork actually produces, which is the strong form
+  // of this check. The view cannot be read that way, since it builds elements through Obsidian's own
+  // dom helpers rather than through a string, so these names are taken out of the source text. That
+  // is weaker, yet it still catches the one breakage that matters here: a class renamed on one side of
+  // the pair only, which paints nothing and reports no error anywhere.
+  const askedForButUnstyled = ['wt-is-full'];
+
+  it('has a rule behind every class the view asks for by its whole name', () => {
+    const styled = styledClasses();
+    const quoted = [...(source.matchAll(/['"`]((?:wt|is)-[a-zA-Z0-9-]+(?: [a-zA-Z0-9-]+)*)['"`]/g) ?? [])];
+    expect(quoted.length).toBeGreaterThanOrEqual(40);
+    for (const match of quoted) {
+      for (const className of match[1].split(' ')) {
+        if (askedForButUnstyled.includes(className)) {
+          continue;
+        }
+        expect(styled.has(className), `.${className} is asked for but has no rule`).toBe(true);
+      }
+    }
+  });
+
+  /** The declarations one selector carries, so a test can read a property rather than squint at text. */
+  function declarationsFor(className: string): string {
+    const found = new RegExp(`\\.${className}\\s*\\{([^}]*)\\}`).exec(styles);
+    expect(found, `.${className} has a rule of its own`).not.toBe(null);
+    return found![1];
+  }
+
+  it('leaves the bold to the day under edit, which is all the bold is for', () => {
+    // Today and the day under edit used to carry the same two declarations, so stepping back a day
+    // could not move the bold. It could only add a second one while today went on wearing the only
+    // marking a column had ever had. Today keeps the stronger ink and the weight is the selection's.
+    expect(declarationsFor('wt-bar-today')).not.toMatch(/font-weight/);
+    expect(declarationsFor('wt-bar-today')).toMatch(/color:\s*var\(--text-normal/);
+    expect(declarationsFor('wt-bar-selected')).toMatch(/font-weight:\s*700/);
+  });
+
+  it('gives the marker a row of its own, where it cannot take height from the bars', () => {
+    // Set inside a column the marker shared that column's flex stack with the bar and shrank it, so
+    // the day's amount visibly climbed whenever a past day was under edit. The row spaces itself and
+    // its cells flex one fraction each with the strip's own gap, which is how the two line up.
+    expect(styles).toMatch(/\.wt-tri-row\s*\{[^}]*display:\s*flex/);
+    expect(styles).toMatch(/\.wt-tri-cell\s*\{[^}]*flex:\s*1 1 0/);
+    // Nothing in the marker should need a margin to sit under the bar it belongs to: the cell places
+    // it, and a margin here is the old coupling coming back dressed as spacing.
+    expect(declarationsFor('wt-tri')).not.toMatch(/margin/);
+  });
+
   // The store's review lints for this, and it is a fair rule rather than a fussy one: an
   // !important is a tie being won by force instead of by a selector that means it, which is the
   // shape of thing that quietly stops working when somebody reorders the file and nothing in the

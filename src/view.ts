@@ -260,10 +260,20 @@ export class WaterTrackerView extends ItemView {
         }
       }
 
-      // The marker only means something while you are away from today: it is what tells you this
-      // column is the one under edit, and it disappears the moment you land back on today.
-      const marked = !options.labelled && marksEditedDay(day.key, options.selectedKey, options.todayKey);
-      if (marked) column.createDiv({ cls: 'wt-tri', attr: { 'aria-hidden': 'true' } });
+    }
+
+    if (!options.labelled) {
+      // One cell per column in a row under the strip rather than inside the columns: a marker set in
+      // the column shares the flex stack with the bar and takes height away from it, which is what
+      // pushed a day's amount upward. It means something only while you are away from today, so it is
+      // gone the moment you arrive back on today.
+      const row = parent.createDiv({ cls: 'wt-tri-row', attr: { 'aria-hidden': 'true' } });
+      for (const day of days) {
+        const cell = row.createDiv({ cls: 'wt-tri-cell' });
+        if (marksEditedDay(day.key, options.selectedKey, options.todayKey)) {
+          cell.createDiv({ cls: 'wt-tri' });
+        }
+      }
     }
   }
 

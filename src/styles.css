@@ -261,13 +261,15 @@
 
 /* The one under edit, today included, since the marker says which column the bottle above belongs to
    and that is worth saying about today too. The cell centres it, so there is no margin here to pull it
-   out from under the bar it belongs to. */
+   out from under the bar it belongs to. The apex sits on the side nearest the strip: the marker's whole
+   job is pointing at the day it belongs to, and an apex on the far side reads as pointing into the
+   empty space under the chart instead. */
 .wt-tri {
   width: 0;
   height: 0;
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
-  border-top: 6px solid var(--wt-tri, #101215);
+  border-bottom: 6px solid var(--wt-tri, #101215);
 }
 
 /* Day navigation, the last thing in the drink panel. */

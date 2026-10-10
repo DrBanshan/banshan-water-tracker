@@ -201,6 +201,17 @@ describe('the stylesheet behind the drawing', () => {
     expect(declarationsFor('wt-tri')).not.toMatch(/margin/);
   });
 
+  it('points the marker at the day it belongs to rather than at the space below the chart', () => {
+    // The row sits under the strip, so the only reading that works is an apex on the near side. A
+    // triangle made of borders takes its direction from which of the three coloured sides carries the
+    // ink, and putting it on the wrong one leaves a perfectly well shaped arrow aimed at nothing.
+    // Only the direction is pinned here, not the spelling of the sides, since there is more than one
+    // well formed way to write the same triangle.
+    const body = declarationsFor('wt-tri');
+    expect(body, 'the coloured side is the one nearest the strip').toMatch(/border-bottom:[^;]*solid/);
+    expect(body, 'nothing coloured on the far side').not.toMatch(/border-top:/);
+  });
+
   it('reserves the placeholder line with visibility rather than collapsing it away', () => {
     // Dropping the line once a cup was logged moved the whole readout up and down as you typed, which
     // reads as a layout coming apart rather than as an empty day. The rule has to hide the words and

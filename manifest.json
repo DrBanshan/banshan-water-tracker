@@ -1,7 +1,7 @@
 {
   "id": "banshan-water-tracker",
   "name": "Banshan Water Tracker",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "1.13.7",
   "description": "Log cups of water with a bottle that fills up as you drink. Every entry is a plain markdown row in your vault.",
   "author": "DrBanShan",

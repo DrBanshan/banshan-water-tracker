@@ -55,10 +55,28 @@ handed one that breaks on them.
 
 Click the droplet in the ribbon, or run **Water tracker: Open view** from the palette.
 
-- **Drink.** The bottle shows today against your goal. Tap it to add one cup, or use the
-  quick buttons for other sizes. There is an undo for the last cup of today.
+- **Drink.** The bottle shows the day you are editing against your goal, which is today unless you
+  have moved. Tap it to add one cup, or use the quick buttons for other sizes. There is an undo for
+  the last cup of that day.
 - **Analysis.** Streak, how often you hit the goal, your daily average, best day, the weekday
   pattern, a month-by-month heatmap, and which cup sizes you actually reach for.
+
+### Filling in a day you forgot
+
+The row at the bottom of the Drink tab moves the day you are editing: the chevrons step one day back
+or forward, and touching a weekday in **Last 7 days** jumps straight to that day. The weekday goes
+bold for the day under edit and the 30-day strip puts a small marker under its column, which is what
+tells you the bottle above is showing that day rather than today. Arriving back on today clears the
+marker.
+
+- A cup logged into a day that has already gone by is stamped `23:59` of that day, the last minute of
+  it a forgotten drink can honestly belong to. Logging into today keeps the real clock time.
+- Forward stops at today, because a cup claimed for a day that has not arrived is not a record.
+- The 30-day strip slides back to keep the day you are editing on screen, and once it has slid its
+  heading names the day it runs up to rather than claiming to be the last 30. The 7-day strip stays
+  where it is, so the bold weekday only shows while that day is inside it.
+- The palette commands carry on working on today whichever day you have selected, which is what their
+  names promise.
 
 Palette commands:
 

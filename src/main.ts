@@ -1,6 +1,6 @@
 import { Notice, Plugin } from 'obsidian';
 import { bottleById } from './bottles';
-import { nowTime } from './model';
+import { dateKey, logTime } from './model';
 import { WaterStore } from './store';
 import { WaterTrackerSettingTab } from './settings';
 import { DEFAULT_SETTINGS } from './types';
@@ -46,29 +46,36 @@ export default class WaterTrackerPlugin extends Plugin {
     );
   }
 
-  async addCup(ml: number): Promise<void> {
+  /** Logging into the day you are editing keeps the real hour; a day already gone gets 23:59. */
+  async addCup(ml: number, day?: Date): Promise<void> {
     const amount = Math.round(ml);
     if (!Number.isFinite(amount) || amount <= 0) return;
 
     const now = new Date();
+    const target = day ?? now;
+    const key = dateKey(target);
     try {
-      await this.store.addCup(amount, nowTime(now), now);
+      await this.store.addCup(amount, logTime(target, now), target);
     } catch (error) {
-      new Notice(`Water tracker: could not write today's entry (${String(error)})`);
+      new Notice(`Water tracker: could not write the entry for ${key} (${String(error)})`);
       return;
     }
     await this.refresh();
   }
 
-  async undoLast(): Promise<void> {
+  async undoLast(day?: Date): Promise<void> {
+    const now = new Date();
+    const target = day ?? now;
+    const key = dateKey(target);
     let removed = false;
     try {
-      removed = await this.store.undoLast();
+      removed = await this.store.undoLast(target);
     } catch (error) {
       new Notice(`Water tracker: could not undo (${String(error)})`);
       return;
     }
-    new Notice(removed ? 'Removed the last cup' : 'Nothing logged today yet');
+    const nothing = key === dateKey(now) ? 'Nothing logged today yet' : `Nothing logged on ${key} yet`;
+    new Notice(removed ? 'Removed the last cup' : nothing);
     await this.refresh();
   }
 

@@ -222,6 +222,63 @@
   font-weight: 700;
 }
 
+/* The weekday of the day under edit, so the bottle above has an owner you can see. */
+.wt-bar-selected {
+  color: var(--text-normal);
+  font-weight: 700;
+}
+
+.wt-col-pick {
+  cursor: pointer;
+}
+
+/* Marks the column under edit, and only while that day is not today. */
+.wt-tri {
+  width: 0;
+  height: 0;
+  margin: 3px auto 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 6px solid var(--wt-tri, #101215);
+}
+
+/* Day navigation, the last thing in the drink panel. */
+.wt-daynav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.wt-daynav-btn {
+  min-width: 44px;
+  min-height: 40px;
+  padding: 0;
+  justify-content: center;
+}
+
+.wt-daynav-btn.is-inert {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.wt-daynav-label {
+  text-align: center;
+  min-width: 0;
+}
+
+.wt-daynav-title {
+  font-size: 0.68em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.wt-daynav-date {
+  font-weight: 700;
+}
+
 /* ---------- tabs (drink | analysis, inside this one sidebar view) ---------- */
 
 .wt-tabs {

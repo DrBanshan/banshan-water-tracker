@@ -30,6 +30,26 @@ export function nowTime(d: Date = new Date()): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/** Local calendar midnight for a `YYYY-MM-DD` key, the inverse of dateKey. */
+export function keyToDate(key: string): Date {
+  return new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, Number(key.slice(8, 10)));
+}
+
+/**
+ * `count` consecutive days ending at `end`, oldest first, with totals read out of `totals` and a day
+ * that was never logged reading as zero rather than going missing. Days are generated rather than
+ * filtered from what was logged, so a skipped day still holds its place in the strip.
+ */
+export function windowDays(totals: Map<string, number>, end: Date, count: number): { key: string; total: number }[] {
+  const days: { key: string; total: number }[] = [];
+  for (let offset = count - 1; offset >= 0; offset -= 1) {
+    const day = addDays(end, -offset);
+    const key = dateKey(day);
+    days.push({ key, total: totals.get(key) ?? 0 });
+  }
+  return days;
+}
+
 export function formatAmount(ml: number, unit: 'ml' | 'oz'): string {
   return unit === 'oz' ? `${(ml / ML_PER_OZ).toFixed(1)} oz` : `${ml} ml`;
 }
@@ -198,4 +218,45 @@ export function countStreak(today: Date, goalMet: (key: string) => boolean): num
     cursor.setDate(cursor.getDate() - 1);
   }
   return streak;
+}
+
+/**
+ * Whole local calendar days between two dates, positive when `to` falls later. The arithmetic runs
+ * through Date.UTC on the y/m/d parts on purpose: counting on raw milliseconds would drift by an hour
+ * across a daylight saving boundary and hand back 0 where the honest answer is 1, which is exactly
+ * the kind of off by one that decides whether a backfilled day is treated as today.
+ */
+export function daysApart(from: Date, to: Date): number {
+  // Both sides land on a UTC midnight, so the difference is a whole number of days exactly and needs
+  // no rounding to be trusted. Anything that perturbs this divisor changes every count the view leans on.
+  const a = Date.UTC(from.getFullYear(), from.getMonth(), from.getDate());
+  const b = Date.UTC(to.getFullYear(), to.getMonth(), to.getDate());
+  return (b - a) / 86_400_000;
+}
+
+/**
+ * The clock time a new row should carry. Logging into the day you are editing stamps the real hour;
+ * filling in a day that already went by puts the cup at its last minute, because that is the only
+ * hour of a finished day a forgotten drink can honestly be said to belong to.
+ */
+export function logTime(selected: Date, now: Date = new Date()): string {
+  return dateKey(selected) === dateKey(now) ? nowTime(now) : '23:59';
+}
+
+/**
+ * Whether one chart column carries the marker for the day under edit. False of today on purpose:
+ * landing back on today is the moment the marker is meant to vanish, since the bottle reading as
+ * today is the default and needs no saying.
+ */
+export function marksEditedDay(key: string, selectedKey: string, todayKey: string): boolean {
+  return key === selectedKey && key !== todayKey;
+}
+
+/**
+ * Whether the chart strip has to slide back to hold the day under edit at all. It holds that day
+ * either way, but slid means the strip is no longer the trailing `span` days and the heading should
+ * stop claiming that it is.
+ */
+export function stripHasToSlide(selectedKey: string, todayKey: string, span: number): boolean {
+  return daysApart(keyToDate(selectedKey), keyToDate(todayKey)) >= span;
 }

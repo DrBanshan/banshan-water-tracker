@@ -201,6 +201,17 @@ describe('the stylesheet behind the drawing', () => {
     expect(declarationsFor('wt-tri')).not.toMatch(/margin/);
   });
 
+  it('reserves the placeholder line with visibility rather than collapsing it away', () => {
+    // Dropping the line once a cup was logged moved the whole readout up and down as you typed, which
+    // reads as a layout coming apart rather than as an empty day. The rule has to hide the words and
+    // keep the box, because a well meaninged swap to display none would collapse the box and bring the
+    // jiggle straight back while looking identical in review.
+    const blanked = /\.wt-hint\.is-blank\s*\{([^}]*)\}/.exec(styles);
+    expect(blanked, 'the blanked placeholder has a rule of its own').not.toBe(null);
+    expect(blanked![1]).toMatch(/visibility:\s*hidden/);
+    expect(blanked![1]).not.toMatch(/display:\s*none/);
+  });
+
   // The store's review lints for this, and it is a fair rule rather than a fussy one: an
   // !important is a tie being won by force instead of by a selector that means it, which is the
   // shape of thing that quietly stops working when somebody reorders the file and nothing in the

@@ -8,7 +8,7 @@ import {
   WEEKDAY_LABELS,
 } from './analytics';
 import { bottleById, bottleTree, mountShape, tickValues, waterLevelY } from './bottles';
-import { addDays, dateKey, dayTotals, daysApart, displayAmount, drinksInRange, formatAmount, keyToDate, marksEditedDay, monthKey, stripHasToSlide, windowDays } from './model';
+import { addDays, dateKey, dayTotals, daysApart, displayAmount, drinksInRange, formatAmount, keyToDate, marksEditedDay, monthKey, stripEnd, stripHasToSlide, windowDays } from './model';
 import type { DaySummary } from './store';
 import type { WaterSettings } from './types';
 import type WaterTrackerPlugin from './main';
@@ -182,7 +182,12 @@ export class WaterTrackerView extends ItemView {
     } else {
       el.createDiv({ cls: 'wt-left', text: `${group(goal - shown)} ${settings.unit} to go` });
     }
-    if (shown === 0) el.createDiv({ cls: 'wt-hint', text: 'Tap the bottle to add a cup' });
+    // The line is a placeholder, so the room it takes is reserved whether or not it is showing words.
+    // Taking it away once a cup was logged moved the whole readout up and down as you typed, which
+    // read as a broken layout rather than as an empty state. The hiding is done with visibility in the
+    // sheet: display none would collapse the box and bring the jiggle straight back.
+    const hint = el.createDiv({ cls: 'wt-hint', text: 'Tap the bottle to add a cup' });
+    hint.toggleClass('is-blank', shown > 0);
   }
 
   private paintControls(settings: WaterSettings): void {
@@ -215,14 +220,17 @@ export class WaterTrackerView extends ItemView {
       },
     });
 
-    // The strip is meant to hold the day you are editing, so it slides back with you rather than
-    // leaving the marker nowhere to go. Once slid it is no longer the trailing 30 days and says so.
+    // The strip is meant to hold the day you are editing, so when that day falls out of the trailing
+    // range the strip moves to hold it with the edited day pinned to the LEFT end rather than parked at
+    // the far right where you would have to go looking for it. Slid it runs forward from the edited day,
+    // which is safe: the slide only starts at thirty days back, so the twenty ninth day after it is
+    // still yesterday and the strip can not reach into a day that has not arrived.
     const slid = stripHasToSlide(selectedKey, todayKey, CHART_DAYS);
     el.createDiv({
       cls: 'wt-section',
-      text: slid ? `Last ${CHART_DAYS} days up to ${dateKey(this.editing)}` : `Last ${CHART_DAYS} days`,
+      text: slid ? `Days from ${selectedKey}` : `Last ${CHART_DAYS} days`,
     });
-    this.barGroup(el, windowDays(totals, slid ? this.editing : now, CHART_DAYS), goal, {
+    this.barGroup(el, windowDays(totals, stripEnd(selectedKey, todayKey, CHART_DAYS), CHART_DAYS), goal, {
       labelled: false,
       todayKey,
       selectedKey,

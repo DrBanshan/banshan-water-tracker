@@ -11,6 +11,7 @@ import {
   parseMonth,
   removeLastDrink,
   stripHasToSlide,
+  stripEnd,
   TABLE_DIVIDER,
   TABLE_HEADER,
   windowDays,
@@ -159,6 +160,42 @@ describe('which column carries the marker, and how far the strip has to reach', 
   it('slides at the distance the strip asks for, not at a hardcoded thirty', () => {
     expect(stripHasToSlide(back(6), TODAY, 7)).toBe(false);
     expect(stripHasToSlide(back(7), TODAY, 7)).toBe(true);
+  });
+
+  it('holds the edited day at the left end once slid, without ever reaching into a day to come', () => {
+    // Thirty days back is where the slide starts, so the twenty ninth day after the day under edit is
+    // still yesterday. That is what lets the strip keep the edited day at its left edge, which is where
+    // your eye already is, rather than parking it at the far right to be hunted for. Anchor it the other
+    // way and the last assertion here would be the one to say so.
+    const today = at(TODAY);
+    const edited = addDays(today, -30);
+    const strip = windowDays(new Map<string, number>([[dateKey(edited), 700]]), stripEnd(dateKey(edited), TODAY, 30), 30);
+
+    expect(strip[0].key, 'the edited day is the first column').toBe(dateKey(edited));
+    expect(strip[0].total, 'and it carries what was logged on it').toBe(700);
+    // daysApart reads positive when the second date is the later one, so a column in the past counts up
+    // to today rather than down to it.
+    expect(daysApart(keyToDate(strip[strip.length - 1].key), today), 'the last column is the day before today').toBe(1);
+    for (const day of strip) {
+      expect(daysApart(keyToDate(day.key), today), `${day.key} is not a day to come`).toBeGreaterThan(0);
+    }
+  });
+
+  it('leaves the window trailing at today while the edited day still fits inside it', () => {
+    const strip = windowDays(new Map<string, number>(), stripEnd(back(12), TODAY, 30), 30);
+    expect(strip[strip.length - 1].key).toBe(TODAY);
+    expect(strip[0].key).toBe(back(29));
+  });
+
+  it('puts the marker under the first column and nowhere else once the window has slid', () => {
+    // This is the whole of what the arrangement is for: after you have stepped back past anything the
+    // trailing window could show, the day you are filling in and its marker are both in the first cell,
+    // rather than eleven cells down the strip where you would have to go and look for them.
+    const editedKey = back(40);
+    const strip = windowDays(new Map<string, number>(), stripEnd(editedKey, TODAY, 30), 30);
+    const marked = strip.filter((day) => marksEditedDay(day.key, editedKey, TODAY)).map((day) => day.key);
+    expect(strip[0].key).toBe(editedKey);
+    expect(marked).toEqual([editedKey]);
   });
 });
 

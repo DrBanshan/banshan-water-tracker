@@ -72,9 +72,11 @@ day rather than today. Arriving back on today clears both.
 - A cup logged into a day that has already gone by is stamped `23:59` of that day, the last minute of
   it a forgotten drink can honestly belong to. Logging into today keeps the real clock time.
 - Forward stops at today, because a cup claimed for a day that has not arrived is not a record.
-- The 30-day strip slides back to keep the day you are editing on screen, and once it has slid its
-  heading names the day it runs up to rather than claiming to be the last 30. The 7-day strip stays
-  where it is, so the bold weekday only shows while that day is inside it.
+- The 30-day strip moves to keep the day you are editing on screen. Once that day is out of the
+  trailing range the strip runs forward from it instead of ending on it, so the day you are filling in
+  and its marker are both in the first cell where you can see them, and the heading reads `Days from
+  2026-08-20` rather than claiming to be the last 30. The 7-day strip stays where it is, so the bold
+  weekday only shows while that day is inside it.
 - The palette commands carry on working on today whichever day you have selected, which is what their
   names promise.
 

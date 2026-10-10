@@ -260,3 +260,15 @@ export function marksEditedDay(key: string, selectedKey: string, todayKey: strin
 export function stripHasToSlide(selectedKey: string, todayKey: string, span: number): boolean {
   return daysApart(keyToDate(selectedKey), keyToDate(todayKey)) >= span;
 }
+
+/**
+ * The last day the chart strip should generate. A trailing window ends at today; once the day under
+ * edit has fallen out of it the window runs forward from that day instead, which is what keeps the day
+ * you are editing in the leftmost column rather than parked at the far right to be hunted for. The
+ * slide only begins once the day is `span` days back, so the last day this window generates is still
+ * yesterday and it cannot reach into a day that has not arrived.
+ */
+export function stripEnd(selectedKey: string, todayKey: string, span: number): Date {
+  const today = keyToDate(todayKey);
+  return stripHasToSlide(selectedKey, todayKey, span) ? addDays(keyToDate(selectedKey), span - 1) : today;
+}

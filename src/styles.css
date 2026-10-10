@@ -106,6 +106,13 @@
   color: var(--text-faint);
 }
 
+/* The placeholder keeps its line whether or not it is showing words, so logging a cup cannot shove the
+   readout around. visibility hides the words and leaves the box in place; display none would collapse
+   the box and bring the jiggle straight back, which is the whole thing this rule exists to prevent. */
+.wt-hint.is-blank {
+  visibility: hidden;
+}
+
 /* ---------- controls ---------- */
 
 .wt-controls {

@@ -259,8 +259,9 @@
   justify-content: center;
 }
 
-/* The one under edit, and only while that day is not today. The cell centres it, so there is no
-   margin here to pull it out from under the bar it belongs to. */
+/* The one under edit, today included, since the marker says which column the bottle above belongs to
+   and that is worth saying about today too. The cell centres it, so there is no margin here to pull it
+   out from under the bar it belongs to. */
 .wt-tri {
   width: 0;
   height: 0;

@@ -273,12 +273,12 @@ export class WaterTrackerView extends ItemView {
     if (!options.labelled) {
       // One cell per column in a row under the strip rather than inside the columns: a marker set in
       // the column shares the flex stack with the bar and takes height away from it, which is what
-      // pushed a day's amount upward. It means something only while you are away from today, so it is
-      // gone the moment you arrive back on today.
+      // pushed a day's amount upward. The marked column is the one the bottle above belongs to, today
+      // included, so there is no moment where you are looking at some day and nothing says which.
       const row = parent.createDiv({ cls: 'wt-tri-row', attr: { 'aria-hidden': 'true' } });
       for (const day of days) {
         const cell = row.createDiv({ cls: 'wt-tri-cell' });
-        if (marksEditedDay(day.key, options.selectedKey, options.todayKey)) {
+        if (marksEditedDay(day.key, options.selectedKey)) {
           cell.createDiv({ cls: 'wt-tri' });
         }
       }

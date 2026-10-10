@@ -244,12 +244,13 @@ export function logTime(selected: Date, now: Date = new Date()): string {
 }
 
 /**
- * Whether one chart column carries the marker for the day under edit. False of today on purpose:
- * landing back on today is the moment the marker is meant to vanish, since the bottle reading as
- * today is the default and needs no saying.
+ * Whether one chart column carries the marker for the day under edit. It marks that day whether or not
+ * it is today: the marker exists to say which column the bottle above belongs to, and today needs
+ * saying as much as any other day does, so there is never a moment when you are editing a day and
+ * nothing says so.
  */
-export function marksEditedDay(key: string, selectedKey: string, todayKey: string): boolean {
-  return key === selectedKey && key !== todayKey;
+export function marksEditedDay(key: string, selectedKey: string): boolean {
+  return key === selectedKey;
 }
 
 /**

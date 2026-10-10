@@ -135,16 +135,29 @@ describe('which column carries the marker, and how far the strip has to reach', 
   const back = (days: number): string => dateKey(addDays(at(TODAY), -days));
 
   it('marks the day under edit when that day has already gone by', () => {
-    expect(marksEditedDay(PAST, PAST, TODAY)).toBe(true);
+    expect(marksEditedDay(PAST, PAST)).toBe(true);
   });
 
-  it('marks nothing once you are back on today, which is when it is meant to vanish', () => {
-    expect(marksEditedDay(TODAY, TODAY, TODAY)).toBe(false);
+  it('marks the day under edit when that day is today, which it now does as well', () => {
+    // This is the half that used to be refused, on the reasoning that a bottle showing today is the
+    // default and needs no saying. It turned out to leave the case you land on most often, the default
+    // itself, with nothing beneath it saying which column you are looking at.
+    expect(marksEditedDay(TODAY, TODAY)).toBe(true);
   });
 
   it('marks neither an untouched column nor a day that was selected some time ago', () => {
-    expect(marksEditedDay('2026-09-25', PAST, TODAY)).toBe(false);
-    expect(marksEditedDay(PAST, '2026-09-27', TODAY)).toBe(false);
+    expect(marksEditedDay('2026-09-25', PAST)).toBe(false);
+    expect(marksEditedDay(PAST, '2026-09-27')).toBe(false);
+  });
+
+  it('marks exactly one column, whichever day the strip happens to be showing', () => {
+    for (const daysBack of [0, 1, 12, 29, 40]) {
+      const selectedKey = back(daysBack);
+      const strip = windowDays(new Map<string, number>(), stripEnd(selectedKey, TODAY, 30), 30);
+      const marked = strip.filter((day) => marksEditedDay(day.key, selectedKey));
+      expect(marked.length, `${selectedKey} leaves exactly one column marked`).toBe(1);
+      expect(marked[0].key, `${selectedKey} marks its own column`).toBe(selectedKey);
+    }
   });
 
   it('leaves the strip where it is while the day under edit still falls inside it', () => {
@@ -193,7 +206,7 @@ describe('which column carries the marker, and how far the strip has to reach', 
     // rather than eleven cells down the strip where you would have to go and look for them.
     const editedKey = back(40);
     const strip = windowDays(new Map<string, number>(), stripEnd(editedKey, TODAY, 30), 30);
-    const marked = strip.filter((day) => marksEditedDay(day.key, editedKey, TODAY)).map((day) => day.key);
+    const marked = strip.filter((day) => marksEditedDay(day.key, editedKey)).map((day) => day.key);
     expect(strip[0].key).toBe(editedKey);
     expect(marked).toEqual([editedKey]);
   });

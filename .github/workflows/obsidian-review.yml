@@ -1,33 +1,24 @@
+# The community directory's own validation, run on every pull request, using the shared workflow from
+# obsidianmd/obsidian-workflows. The same rigour the community submission will meet, enforced by the
+# directory's own tooling rather than an approximation of it. The release half of that repository's
+# catalogue is already answered by release.yml, so this covers pr mode only, which is the only mode that
+# can serve as a check at all. release mode also attests its build, files a submission and opens a draft
+# release, which is not what a review should do, and it stops with a cannot-create-release error whenever
+# the ref being reviewed is not a tag.
+#
+# What is and is not enforced here was measured rather than assumed, on throwaway branches, each with
+# one violation in it:
+#   a manifest.json with no name       red     the schema checks are real
+#   an !important in the stylesheet    green   not caught
+#   an innerHTML assignment in main.ts green   not caught
+# So this workflow is the directory's schema gate, and it is worth having for that. It is not a lint:
+# the lint and scanner-lint inputs are set because that is what the shared workflow's users set, but in
+# pr mode they demonstrably did not look at our bundle or our stylesheet, so the findings the community
+# reviewer itself raised by name, !important and innerHTML among them, are caught here instead by the
+# repository's own suite, in tests/render.test.ts, which is the place that has been shown to bite.
+# Nothing is built in this workflow either, because building the assets changed none of the three
+# results above and a step that cannot change an outcome is not worth running on every pull request.
 name: Obsidian plugin review
-
-# The community directory's own validation and scanner rulesets, enforced strictly, using the
-# official obsidianmd/obsidian-workflows action. The release half (building the assets, attesting
-# them, publishing the draft release) is already covered by release.yml, so this runs the checking
-# half only: the manifest schema, readme and licence presence, the build, and the scanner's
-# stylelint and eslint rulesets.
-#
-# The mode stays at pr rather than release on purpose. Release mode also attests the artifacts and
-# opens a draft release, and it stops with a cannot-create-release error unless it runs from a tag
-# ref, so it could not serve as a pull request check at all. scanner-lint is the switch release mode
-# forces on to obtain the directory's rulesets, and strict is what turns policy findings from
-# warnings into failures, so the pair gives the same rigour without the publishing.
-#
-# The build is a step of its own rather than the action's build input, because that input's own
-# documentation limits build discovery to plugins in release mode, and a review whose scanner is handed
-# an empty shelf still goes green. What makes that worth writing down is that it was measured rather than
-# assumed: a branch carrying an !important in the stylesheet, the very finding the community reviewer
-# raised by name, came back green, while a branch with a manifest missing its name came back red. So the
-# validating half of the action has teeth and the linting half had nothing to bite.
-#
-# The install step is there because the build above needs esbuild on disk. The action installs
-# dependencies as part of its own run and an extra install only costs seconds, whereas a missing
-# install costs a red run whose cause is anywhere but obvious, so the certain thing wins over the
-# tidier one.
-#
-# There is deliberately no push trigger. Pushing main to cut a release used to drag a review run along
-# with it, and a release asked for on its own should not summon a check nobody asked for. The review
-# therefore runs on pull requests and when started by hand from the Actions tab, so asking for a
-# release cannot cause this one.
 
 on:
   pull_request:
@@ -39,24 +30,11 @@ permissions:
 
 jobs:
   review:
-    name: Validate and lint as the directory would
+    name: Validate as the directory would
     runs-on: ubuntu-latest
     steps:
       - name: Check out the commit
         uses: actions/checkout@v4
-
-      - name: Install
-        run: npm ci
-
-      # Built here rather than left to the action, because the linters have nothing otherwise to read.
-      # main.js and styles.css are gitignored and so are not in a checkout, and the action's own text
-      # limits build auto-detection to plugins in release mode, which leaves the scanning half of this
-      # workflow looking at an empty shelf. It is npm run release and not npm run build because the
-      # latter deploys into the development vault, a path a runner does not have, and leaves nothing at
-      # the repository root, while release mode writes exactly the three files the scanner wants and
-      # never goes near a vault.
-      - name: Build the assets the scanner reads
-        run: npm run release
 
       - name: Review the plugin
         uses: obsidianmd/obsidian-workflows@v1

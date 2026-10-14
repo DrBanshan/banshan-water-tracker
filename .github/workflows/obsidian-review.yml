@@ -12,14 +12,12 @@ name: Obsidian plugin review
 # forces on to obtain the directory's rulesets, and strict is what turns policy findings from
 # warnings into failures, so the pair gives the same rigour without the publishing.
 #
-# build is named rather than left to be discovered, for two reasons that are load bearing here. The
-# action's own text says auto-detection of a build script applies to plugins in release mode, so in
-# pr mode nothing would be built; main.js and styles.css are gitignored and are not in a checkout,
-# so a review with nothing to scan would pass and look exactly like a review that found nothing wrong.
-# It is npm run release rather than npm run build because the latter deploys into the development
-# vault, a path that is not on a runner, and leaves no files at the repository root where the scanner
-# looks, while release mode writes exactly main.js, manifest.json and styles.css and never touches a
-# vault.
+# The build is a step of its own rather than the action's build input, because that input's own
+# documentation limits build discovery to plugins in release mode, and a review whose scanner is handed
+# an empty shelf still goes green. What makes that worth writing down is that it was measured rather than
+# assumed: a branch carrying an !important in the stylesheet, the very finding the community reviewer
+# raised by name, came back green, while a branch with a manifest missing its name came back red. So the
+# validating half of the action has teeth and the linting half had nothing to bite.
 #
 # The install step is there because the build above needs esbuild on disk. The action installs
 # dependencies as part of its own run and an extra install only costs seconds, whereas a missing
@@ -50,12 +48,21 @@ jobs:
       - name: Install
         run: npm ci
 
+      # Built here rather than left to the action, because the linters have nothing otherwise to read.
+      # main.js and styles.css are gitignored and so are not in a checkout, and the action's own text
+      # limits build auto-detection to plugins in release mode, which leaves the scanning half of this
+      # workflow looking at an empty shelf. It is npm run release and not npm run build because the
+      # latter deploys into the development vault, a path a runner does not have, and leaves nothing at
+      # the repository root, while release mode writes exactly the three files the scanner wants and
+      # never goes near a vault.
+      - name: Build the assets the scanner reads
+        run: npm run release
+
       - name: Review the plugin
         uses: obsidianmd/obsidian-workflows@v1
         with:
           type: plugin
           mode: pr
-          build: npm run release
           scanner-lint: true
           strict: true
           lint: true
